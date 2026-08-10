@@ -1,0 +1,468 @@
+// ===== Firebase (Compat SDK v10 — chạy được như file tĩnh, không cần server) =====
+// === THAY THẾ CONFIG FIREBASE CỦA BẠN VÀO ĐÂY ===
+const firebaseConfig = {
+    apiKey: "AIzaSyDmzHTFW5LVuO1fFAX44eJAuI1fwSrV2Yg",
+    authDomain: "ksk-crud.firebaseapp.com",
+    databaseURL: "https://ksk-crud-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "ksk-crud",
+    storageBucket: "ksk-crud.appspot.com",
+    messagingSenderId: "598973564084",
+    appId: "1:598973564084:web:fbca8dda4e7ead360503e1"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const auth = firebase.auth();
+
+function ref(_db, path) { return path ? _db.ref(path) : _db.ref(); }
+function push(r, data) { return r.push(data); }
+function update(r, updates) { return r.update(updates); }
+function onValue(r, cb) { r.on('value', cb); return () => r.off('value', cb); }
+function onAuthStateChanged(a, cb) { return a.onAuthStateChanged(cb); }
+function signInWithEmailAndPassword(a, email, pw) { return a.signInWithEmailAndPassword(email, pw); }
+function signOut(a) { return a.signOut(); }
+function sendPasswordResetEmail(a, email) { return a.sendPasswordResetEmail(email); }
+
+// ===== DOM refs =====
+const loginScreen = document.getElementById('loginScreen');
+const appShell = document.getElementById('appShell');
+const loginForm = document.getElementById('loginForm');
+const loginEmail = document.getElementById('loginEmail');
+const loginPassword = document.getElementById('loginPassword');
+const loginError = document.getElementById('loginError');
+const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+const logoutBtn = document.getElementById('logoutBtn');
+const staffEmailLabel = document.getElementById('staffEmailLabel');
+
+const batchSelect = document.getElementById('batchSelect');
+const newBatchBtn = document.getElementById('newBatchBtn');
+const newBatchModal = document.getElementById('newBatchModal');
+const newBatchForm = document.getElementById('newBatchForm');
+const cancelNewBatchBtn = document.getElementById('cancelNewBatchBtn');
+const noBatchBanner = document.getElementById('noBatchBanner');
+const tableBody = document.getElementById('tableBody');
+const tableHead = document.querySelector('#dataTable thead');
+
+// ===== State =====
+let currentUser = null;
+let batchListCache = {};
+let activeBatchId = localStorage.getItem('activeBatchId') || null;
+let rawRecordsCache = null;
+let currentSortField = 'stt';
+let currentSortOrder = 'asc';
+let unsubBatchRecords = null;
+
+window.__appState = { activeBatchId: null, activeBatchName: '' };
+
+// ===== Helpers =====
+function toUpperVN(str) {
+    return (str || '').toString().toLocaleUpperCase('vi-VN');
+}
+
+function formatTimestamp(ts) {
+    if (!ts) return '---';
+    let date = new Date(Number(ts));
+    let day = String(date.getDate()).padStart(2, '0');
+    let month = String(date.getMonth() + 1).padStart(2, '0');
+    let year = date.getFullYear();
+    let hours = String(date.getHours()).padStart(2, '0');
+    let minutes = String(date.getMinutes()).padStart(2, '0');
+    let seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+}
+
+function getTimeFromFirebaseId(id) {
+    if (!id || id.length < 8) return Date.now();
+    let PUSH_CHARS = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
+    let timestamp = 0;
+    for (let i = 0; i < 8; i++) {
+        timestamp = timestamp * 64 + PUSH_CHARS.indexOf(id[i]);
+    }
+    return timestamp;
+}
+
+function setEntryEnabled(enabled) {
+    document.querySelectorAll('#entrySections input, #entrySections select, #entrySections button')
+        .forEach(el => { el.disabled = !enabled; });
+    noBatchBanner.style.display = enabled ? 'none' : 'block';
+}
+
+// ===== Auth =====
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        currentUser = user;
+        loginScreen.style.display = 'none';
+        appShell.style.display = 'block';
+        staffEmailLabel.textContent = user.email;
+        attachBatchMetaListener();
+    } else {
+        currentUser = null;
+        detachBatchMetaListener();
+        detachBatchListeners();
+        activeBatchId = null;
+        window.__appState.activeBatchId = null;
+        window.__appState.activeBatchName = '';
+        appShell.style.display = 'none';
+        loginScreen.style.display = 'flex';
+        loginForm.reset();
+        loginError.textContent = '';
+    }
+});
+
+loginForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    loginError.textContent = '';
+    signInWithEmailAndPassword(auth, loginEmail.value.trim(), loginPassword.value)
+        .catch(() => {
+            loginError.textContent = 'Email hoặc mật khẩu không đúng.';
+        });
+});
+
+logoutBtn.addEventListener('click', () => signOut(auth));
+
+forgotPasswordLink.addEventListener('click', () => {
+    let email = loginEmail.value.trim();
+    if (!email) {
+        email = prompt('Nhập email nhân viên để nhận link đặt lại mật khẩu:') || '';
+    }
+    if (!email) return;
+    sendPasswordResetEmail(auth, email)
+        .then(() => alert('Đã gửi email đặt lại mật khẩu (nếu email tồn tại trong hệ thống).'))
+        .catch(() => alert('Không thể gửi email đặt lại mật khẩu. Kiểm tra lại địa chỉ email.'));
+});
+
+// ===== Batch list (dropdown) =====
+let unsubBatchMeta = null;
+
+function attachBatchMetaListener() {
+    unsubBatchMeta = onValue(ref(db, 'batchMeta'), (snapshot) => {
+        batchListCache = snapshot.val() || {};
+        renderBatchDropdown();
+    });
+}
+
+function detachBatchMetaListener() {
+    if (unsubBatchMeta) { unsubBatchMeta(); unsubBatchMeta = null; }
+    batchListCache = {};
+}
+
+function renderBatchDropdown() {
+    const entries = Object.entries(batchListCache)
+        .sort((a, b) => (b[1].createdAt || 0) - (a[1].createdAt || 0));
+
+    batchSelect.innerHTML = '<option value="">-- Chọn đợt khám --</option>';
+    entries.forEach(([id, meta]) => {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = meta.date ? `${meta.name} (${meta.date})` : meta.name;
+        if (meta.status === 'archived') opt.textContent += ' [Đã lưu trữ]';
+        batchSelect.appendChild(opt);
+    });
+
+    // Khôi phục đợt khám đã chọn lần trước trên trình duyệt này, nếu vẫn còn tồn tại
+    if (activeBatchId && batchListCache[activeBatchId]) {
+        batchSelect.value = activeBatchId;
+        if (!unsubBatchRecords) selectBatch(activeBatchId, false);
+    } else {
+        // Đợt khám cũ đã bị xóa/không còn tồn tại, hoặc chưa từng chọn đợt nào
+        activeBatchId = null;
+        localStorage.removeItem('activeBatchId');
+        detachBatchListeners();
+        setEntryEnabled(false);
+    }
+}
+
+batchSelect.addEventListener('change', () => {
+    const id = batchSelect.value;
+    if (id) selectBatch(id, true);
+    else {
+        detachBatchListeners();
+        activeBatchId = null;
+        window.__appState.activeBatchId = null;
+        window.__appState.activeBatchName = '';
+        localStorage.removeItem('activeBatchId');
+        setEntryEnabled(false);
+        tableBody.innerHTML = '';
+    }
+});
+
+function selectBatch(id, persist) {
+    activeBatchId = id;
+    const meta = batchListCache[id] || {};
+    window.__appState.activeBatchId = id;
+    window.__appState.activeBatchName = meta.name || '';
+    if (persist) localStorage.setItem('activeBatchId', id);
+    batchSelect.value = id;
+    setEntryEnabled(true);
+    attachBatchListeners(id);
+}
+
+// ===== Batch-scoped records listener =====
+function attachBatchListeners(batchId) {
+    detachBatchListeners();
+
+    unsubBatchRecords = onValue(ref(db, `batchRecords/${batchId}`), (snapshot) => {
+        rawRecordsCache = snapshot.val();
+        renderTable();
+    });
+}
+
+function detachBatchListeners() {
+    if (unsubBatchRecords) { unsubBatchRecords(); unsubBatchRecords = null; }
+    rawRecordsCache = null;
+    tableBody.innerHTML = '';
+}
+
+// ===== Tạo đợt khám mới =====
+newBatchBtn.addEventListener('click', () => {
+    newBatchForm.reset();
+    newBatchModal.style.display = 'flex';
+});
+cancelNewBatchBtn.addEventListener('click', () => { newBatchModal.style.display = 'none'; });
+
+newBatchForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('newBatchName').value.trim();
+    const date = document.getElementById('newBatchDate').value;
+    const location = document.getElementById('newBatchLocation').value.trim();
+    if (!name) { alert('Vui lòng nhập tên đợt khám!'); return; }
+
+    const newRef = push(ref(db, 'batchMeta'));
+    const id = newRef.key;
+    const updates = {};
+    updates[`batchMeta/${id}`] = {
+        name, date: date || '', location: location || '',
+        status: 'active',
+        createdByEmail: currentUser.email,
+        createdAt: Date.now()
+    };
+    await update(ref(db), updates);
+    newBatchModal.style.display = 'none';
+    selectBatch(id, true);
+});
+
+// ===== Sắp xếp bảng: bấm vào tiêu đề cột bất kỳ để sắp xếp theo cột đó =====
+function updateSortHeaders() {
+    tableHead.querySelectorAll('th[data-field]').forEach((th) => {
+        if (th.dataset.field === currentSortField) {
+            th.setAttribute('data-sort', currentSortOrder);
+        } else {
+            th.removeAttribute('data-sort');
+        }
+    });
+}
+
+tableHead.addEventListener('click', (e) => {
+    const th = e.target.closest('th[data-field]');
+    if (!th) return;
+    const field = th.dataset.field;
+    if (currentSortField === field) {
+        currentSortOrder = (currentSortOrder === 'asc') ? 'desc' : 'asc';
+    } else {
+        currentSortField = field;
+        currentSortOrder = 'asc';
+    }
+    updateSortHeaders();
+    renderTable();
+});
+
+updateSortHeaders();
+
+// ===== Ghi bản ghi mới vào đợt khám đang chọn =====
+function pushRecord(data) {
+    if (!activeBatchId) {
+        alert('Vui lòng chọn hoặc tạo đợt khám trước khi thêm dữ liệu!');
+        return;
+    }
+    const nowMs = Date.now();
+    push(ref(db, `batchRecords/${activeBatchId}`), {
+        ...data,
+        name: toUpperVN(data.name),
+        createdAt: formatTimestamp(nowMs),
+        timestamp: nowMs,
+        createdByEmail: currentUser.email,
+        createdBy: currentUser.uid
+    });
+}
+
+function updateRecordField(key, field, rawValue) {
+    if (!activeBatchId) return;
+    const value = (field === 'name') ? toUpperVN(rawValue) : rawValue;
+    update(ref(db, `batchRecords/${activeBatchId}/${key}`), {
+        [field]: value,
+        updatedByEmail: currentUser.email,
+        updatedBy: currentUser.uid,
+        updatedAt: Date.now()
+    });
+}
+
+// ===== Sắp xếp dữ liệu ngày sinh (DD/MM/YYYY) theo thứ tự thời gian thực =====
+function dobSortKey(dob) {
+    const parts = (dob || '').split('/');
+    if (parts.length === 3 && parts.every(p => /^\d+$/.test(p))) {
+        return Number(parts[2]) * 10000 + Number(parts[1]) * 100 + Number(parts[0]);
+    }
+    return -1;
+}
+
+function getSortValue(item, field) {
+    switch (field) {
+        case 'stt': return item.sttNum;
+        case 'createdAt': return item.timestampRaw;
+        case 'dob': return dobSortKey(item.dob);
+        default: return (item[field] || '').toString().toLocaleLowerCase('vi-VN');
+    }
+}
+
+// ===== Vẽ lại bảng lưới dựa trên cache dữ liệu =====
+function renderTable() {
+    tableBody.innerHTML = '';
+    if (!rawRecordsCache) return;
+
+    const startNum = 1;
+    let records = Object.entries(rawRecordsCache);
+
+    records.sort((a, b) => {
+        let sttA = a[1].customSTT !== undefined ? Number(a[1].customSTT) : 0;
+        let sttB = b[1].customSTT !== undefined ? Number(b[1].customSTT) : 0;
+        if (sttA !== 0 && sttB !== 0 && sttA !== sttB) {
+            return sttA - sttB;
+        }
+        let timeA = a[1].timestamp || getTimeFromFirebaseId(a[0]);
+        let timeB = b[1].timestamp || getTimeFromFirebaseId(b[0]);
+        return timeA - timeB;
+    });
+
+    let formattedRecords = records.map(([key, item], index) => {
+        let assignedNum = (item.customSTT !== undefined && item.customSTT !== '') ? Number(item.customSTT) : (startNum + index);
+        let exactTime = item.timestamp || getTimeFromFirebaseId(key);
+
+        return {
+            key: key,
+            sttNum: assignedNum,
+            sttFormatted: String(assignedNum).padStart(4, '0'),
+            cccd: item.cccd || '',
+            name: item.name || '',
+            dob: item.dob || '',
+            gender: item.gender || 'Nam',
+            address: item.address || '',
+            timestampRaw: exactTime,
+            createdAt: formatTimestamp(exactTime),
+            createdByEmail: item.createdByEmail || '---'
+        };
+    });
+
+    formattedRecords.sort((a, b) => {
+        const va = getSortValue(a, currentSortField);
+        const vb = getSortValue(b, currentSortField);
+        const cmp = (typeof va === 'number' && typeof vb === 'number')
+            ? va - vb
+            : String(va).localeCompare(String(vb), 'vi');
+        return currentSortOrder === 'asc' ? cmp : -cmp;
+    });
+
+    formattedRecords.forEach((item) => {
+        let row = `<tr>
+            <td style="text-align: center;"><input type="checkbox" class="row-checkbox" data-stt="${item.sttFormatted}" data-name="${item.name}" data-dob="${item.dob}" data-gender="${item.gender}"></td>
+            <td class="editable-cell" data-key="${item.key}" data-field="customSTT" style="text-align: center; font-weight: bold;">${item.sttFormatted}</td>
+            <td style="text-align: center;">${item.cccd}</td>
+            <td class="editable-cell" data-key="${item.key}" data-field="name">${item.name}</td>
+            <td style="text-align: center;">${item.dob}</td>
+            <td style="text-align: center;">${item.gender}</td>
+            <td>${item.address}</td>
+            <td style="text-align: center;">${item.createdAt}</td>
+            <td style="text-align: center; font-size: 12px; color: var(--ink-muted);">${item.createdByEmail}</td>
+            <td style="text-align: center;">
+                <button class="btn-print" onclick="printSingleSTT('${item.sttFormatted}', '${item.name}', '${item.dob}', '${item.gender}')">In Tem</button>
+            </td>
+        </tr>`;
+        tableBody.insertAdjacentHTML('beforeend', row);
+    });
+}
+
+// ===== Sửa STT / Tên tại chỗ (inline edit) =====
+tableBody.addEventListener('click', (e) => {
+    const cell = e.target.closest('.editable-cell');
+    if (!cell || cell.querySelector('input')) return;
+
+    const currentText = cell.textContent.trim();
+    const field = cell.dataset.field;
+    const key = cell.dataset.key;
+
+    const input = document.createElement('input');
+    input.type = (field === 'customSTT') ? 'number' : 'text';
+    input.value = (field === 'customSTT') ? parseInt(currentText, 10) : currentText;
+    cell.textContent = '';
+    cell.appendChild(input);
+    input.focus();
+    input.select();
+
+    const commit = () => {
+        const newValue = input.value.trim();
+        if (newValue !== '' && newValue !== currentText) {
+            updateRecordField(key, field, field === 'customSTT' ? Number(newValue) : newValue);
+        } else {
+            renderTable();
+        }
+    };
+
+    input.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+        if (ev.key === 'Escape') { renderTable(); }
+    });
+    input.addEventListener('blur', commit);
+});
+
+// ===== 3. Xử lý khi quét mã QR CCCD =====
+const cccdInput = document.getElementById('cccdInput');
+cccdInput.addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        let rawData = this.value.trim();
+        let data = rawData.split('|');
+
+        if (data.length >= 6) {
+            let cccd = data[0];
+            let name = data[2];
+            let dobRaw = data[3];
+
+            let dobFormatted = dobRaw;
+            if (dobRaw.length === 8) {
+                dobFormatted = `${dobRaw.substring(0, 2)}/${dobRaw.substring(2, 4)}/${dobRaw.substring(4, 8)}`;
+            }
+
+            pushRecord({
+                cccd: cccd,
+                name: name,
+                dob: dobFormatted,
+                gender: data[4],
+                address: data[5]
+            });
+        } else {
+            alert("Dữ liệu quét không phải mã QR CCCD hợp lệ!");
+        }
+        this.value = '';
+    }
+});
+
+// ===== 4. Xử lý thêm mới thủ công =====
+const manualForm = document.getElementById('manualForm');
+manualForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    let cccd = document.getElementById('manualCCCD').value.trim();
+    let name = document.getElementById('manualName').value.trim();
+    let dob = document.getElementById('manualDob').value.trim();
+    let gender = document.getElementById('manualGender').value;
+    let address = document.getElementById('manualAddress').value.trim();
+
+    if (!name) {
+        alert("Vui lòng nhập tên khách hàng!");
+        return;
+    }
+
+    pushRecord({ cccd, name, dob, gender, address });
+
+    manualForm.reset();
+    alert("Đã thêm mới thành công!");
+});

@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bệnh Viện Đa Khoa Tâm Trí Sài Gòn - Quản lý khám sức khỏe</title>
+    <!-- Thư viện đọc & xuất Excel (SheetJS) -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+    <style>
+        :root {
+            --ink: #1a1d21;
+            --ink-muted: #62676d;
+            --line: #d7d9dc;
+            --line-soft: #e8e9eb;
+            --bg: #f2f2f3;
+            --surface: #ffffff;
+            --accent: #1d4e6e;
+            --accent-hover: #143a52;
+            --accent-soft: #eef4f8;
+            --accent-soft-border: #c3d9e5;
+            --danger: #8a2e2e;
+            --radius: 3px;
+            --shadow-sm: 0 1px 2px rgba(20, 22, 26, .06);
+            --shadow-md: 0 4px 16px rgba(20, 22, 26, .10);
+        }
+        * { box-sizing: border-box; }
+        @page { size: 5cm 3cm; margin: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            background: var(--bg);
+            color: var(--ink);
+            font-size: 14px;
+        }
+
+        h1, h2, h3 { font-weight: 600; }
+
+        /* ===== Màn hình đăng nhập ===== */
+        #loginScreen {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .login-card {
+            width: 360px;
+            max-width: 90vw;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            padding: 32px 28px;
+        }
+        .login-card h1 {
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: .02em;
+            text-align: center;
+            margin: 0 0 4px;
+            color: var(--ink);
+        }
+        .login-card p.subtitle {
+            text-align: center;
+            font-size: 12px;
+            color: var(--ink-muted);
+            margin: 0 0 22px;
+        }
+        .login-card label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--ink-muted);
+        }
+        .login-card input {
+            width: 100%;
+            padding: 9px 10px;
+            margin-bottom: 14px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            font-size: 14px;
+            background: var(--surface);
+            color: var(--ink);
+        }
+        .login-card input:focus { outline: none; border-color: var(--accent); }
+        .login-card button {
+            width: 100%;
+            padding: 10px;
+            background: var(--accent);
+            border: 1px solid var(--accent);
+            border-radius: var(--radius);
+            color: white;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .login-card button:hover { background: var(--accent-hover); box-shadow: var(--shadow-sm); }
+        .login-error {
+            color: var(--danger);
+            font-size: 12px;
+            text-align: center;
+            margin: -6px 0 12px;
+            min-height: 14px;
+        }
+        .forgot-link {
+            display: block;
+            text-align: center;
+            margin-top: 14px;
+            font-size: 12px;
+            color: var(--ink-muted);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+        .forgot-link:hover { color: var(--ink); }
+
+        /* ===== Khung ứng dụng ===== */
+        #appShell { display: none; }
+
+        .top-bar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--surface);
+            border-bottom: 1px solid var(--line);
+            box-shadow: var(--shadow-sm);
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .top-bar .hospital-name {
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: .03em;
+            color: var(--ink);
+            white-space: nowrap;
+        }
+
+        .batch-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .batch-bar label {
+            font-weight: 600;
+            font-size: 11px;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: var(--ink-muted);
+            white-space: nowrap;
+        }
+        .batch-bar select#batchSelect {
+            flex: 1;
+            min-width: 220px;
+            padding: 8px;
+            border-radius: var(--radius);
+            border: 1px solid var(--line);
+            font-size: 13px;
+            font-weight: 600;
+            background: var(--surface);
+            color: var(--ink);
+        }
+        .btn-new-batch {
+            background: var(--accent);
+            color: white;
+            border: 1px solid var(--accent);
+            padding: 7px 12px;
+            border-radius: var(--radius);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .btn-new-batch:hover { background: var(--accent-hover); box-shadow: var(--shadow-sm); }
+        .top-bar .staff-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            color: var(--ink-muted);
+            white-space: nowrap;
+        }
+        .btn-logout {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 6px 10px;
+            font-size: 12px;
+            color: var(--ink);
+            cursor: pointer;
+        }
+        .btn-logout:hover { background: var(--line-soft); border-color: var(--ink-muted); }
+
+        .no-batch-banner {
+            max-width: 1100px;
+            margin: 20px auto 0;
+            padding: 12px 16px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-left: 3px solid var(--ink-muted);
+            border-radius: var(--radius);
+            color: var(--ink);
+            font-size: 13px;
+            display: none;
+        }
+
+        .container { max-width: 1100px; margin: auto; padding: 20px; }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            padding: 16px;
+            margin-bottom: 18px;
+        }
+
+        .card label.section-label {
+            font-weight: 600;
+            font-size: 11px;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: var(--ink-muted);
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        /* ===== Khu vực nhập liệu ===== */
+        #entrySections { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 18px; }
+        #entrySections > .card { flex: 1; min-width: 300px; margin-bottom: 0; }
+
+        .card.scan-card { background: var(--accent-soft); border-color: var(--accent-soft-border); }
+        .scan-input {
+            font-size: 15px;
+            font-weight: 600;
+            padding: 11px 12px;
+            border-color: var(--accent-soft-border);
+        }
+        .scan-input:focus { background: var(--surface); border-color: var(--accent); }
+
+        .manual-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 2px;
+        }
+        .manual-form input, .manual-form select { margin: 0; }
+        .manual-form .btn-manual { grid-column: 1 / -1; }
+
+        input[type="text"], input[type="number"], input[type="date"], select, input[type="file"] {
+            width: 100%; padding: 8px; margin: 5px 0; box-sizing: border-box;
+            border: 1px solid var(--line); border-radius: var(--radius); font-size: 14px;
+            background: var(--surface); color: var(--ink);
+        }
+        input:focus, select:focus { outline: none; border-color: var(--accent); }
+
+        button {
+            padding: 8px 14px; border: 1px solid var(--line); border-radius: var(--radius);
+            cursor: pointer; color: var(--ink); font-weight: 600; font-size: 12px;
+            letter-spacing: .03em; text-transform: uppercase;
+            background: var(--surface);
+            transition: background .15s ease, box-shadow .15s ease, border-color .15s ease;
+        }
+        button:hover { background: var(--line-soft); border-color: var(--ink-muted); }
+
+        .btn-excel, .btn-print-batch { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+        .btn-print { padding: 4px 9px; font-size: 10px; }
+        .btn-manual {
+            background: var(--accent); color: white; border: 1px solid var(--accent);
+            width: 100%; margin-top: 10px;
+        }
+        .btn-manual:hover { background: var(--accent-hover); border-color: var(--accent-hover); box-shadow: var(--shadow-sm); }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border-bottom: 1px solid var(--line-soft); padding: 8px; text-align: left; font-size: 13px; }
+        th {
+            background: var(--surface);
+            border-bottom: 1px solid var(--line);
+            text-align: center;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: .03em;
+            text-transform: uppercase;
+            color: var(--ink-muted);
+            white-space: nowrap;
+        }
+        th[data-field] { cursor: pointer; user-select: none; }
+        th[data-field]:hover { color: var(--ink); }
+        th[data-field]::after { content: '↕'; margin-left: 4px; font-size: 9px; opacity: .4; }
+        th[data-field][data-sort]  { color: var(--accent); }
+        th[data-field][data-sort="asc"]::after { content: '▲'; opacity: 1; }
+        th[data-field][data-sort="desc"]::after { content: '▼'; opacity: 1; }
+        tbody tr:nth-child(even) { background: #fafbfc; }
+        tbody tr:hover { background: var(--line-soft); }
+        td[data-field="name"] { text-transform: uppercase; font-weight: 600; }
+        td.editable-cell { cursor: text; }
+        td.editable-cell:hover { background: var(--line-soft); }
+        td.editable-cell input {
+            width: 100%; padding: 4px; margin: 0; font-size: 13px;
+            border: 1px solid var(--accent); border-radius: 2px;
+        }
+
+        /* ===== CSS In Tem STT khổ 5cm x 3cm ===== */
+        .number-container {
+            width: 5cm;
+            height: 3cm;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            page-break-after: always;
+            box-sizing: border-box;
+            padding: 4px;
+            text-align: center;
+        }
+        .number-text { font-size: 55px; font-weight: bold; line-height: 1; }
+        .name-text { font-size: 16px; font-weight: bold; margin-top: 4px; max-width: 4.8cm; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .info-text { font-size: 13px; margin-top: 2px; }
+
+        #print-area { display: none; }
+        @media print {
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { display: block; position: absolute; left: 0; top: 0; }
+        }
+
+        /* ===== Modal tạo đợt khám ===== */
+        .modal-backdrop {
+            position: fixed; inset: 0; background: rgba(20,22,25,0.45);
+            display: none; align-items: center; justify-content: center; z-index: 500;
+        }
+        .modal-box {
+            background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+            box-shadow: var(--shadow-md); padding: 24px;
+            width: 380px; max-width: 90vw;
+        }
+        .modal-box h3 { margin: 0 0 16px; font-size: 14px; font-weight: 700; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+        .modal-actions button { flex: 1; }
+        .btn-cancel { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+    </style>
+</head>
+<body>
+
+<!-- ===== Màn hình đăng nhập ===== -->
+<div id="loginScreen">
+    <div class="login-card">
+        <h1>BỆNH VIỆN ĐA KHOA TÂM TRÍ SÀI GÒN</h1>
+        <p class="subtitle">Hệ thống quản lý khám sức khỏe — Đăng nhập nhân viên</p>
+        <form id="loginForm">
+            <label for="loginEmail">Email nhân viên</label>
+            <input type="text" id="loginEmail" autocomplete="username" required>
+            <label for="loginPassword">Mật khẩu</label>
+            <input type="password" id="loginPassword" autocomplete="current-password" required>
+            <div class="login-error" id="loginError"></div>
+            <button type="submit">Đăng nhập</button>
+        </form>
+        <a class="forgot-link" id="forgotPasswordLink">Quên mật khẩu?</a>
+    </div>
+</div>
+
+<!-- ===== Khung ứng dụng chính ===== -->
+<div id="appShell">
+    <div class="top-bar">
+        <div class="hospital-name">BV TÂM TRÍ SÀI GÒN</div>
+        <div class="staff-info">
+            <span id="staffEmailLabel"></span>
+            <button type="button" class="btn-logout" id="logoutBtn">Đăng xuất</button>
+        </div>
+    </div>
+
+    <div class="no-batch-banner" id="noBatchBanner">
+        Chưa có đợt khám nào được chọn. Bấm <strong>"+ Đợt khám mới"</strong> bên dưới để tạo đợt khám và bắt đầu nhập dữ liệu.
+    </div>
+
+    <div class="container">
+        <div class="card batch-bar">
+            <label for="batchSelect">Đợt khám</label>
+            <select id="batchSelect"><option value="">-- Chọn đợt khám --</option></select>
+            <button type="button" class="btn-new-batch" id="newBatchBtn">+ Đợt khám mới</button>
+        </div>
+
+        <div id="entrySections">
+            <!-- 1. Quét CCCD -->
+            <div class="card scan-card">
+                <label class="section-label">Quét mã QR CCCD</label>
+                <input type="text" id="cccdInput" class="scan-input" placeholder="Đặt con trỏ vào đây và quét mã QR CCCD..." autocomplete="off">
+            </div>
+
+            <!-- Thêm mới thủ công -->
+            <div class="card">
+                <label class="section-label">Thêm mới thủ công</label>
+                <form id="manualForm" class="manual-form">
+                    <input type="text" id="manualCCCD" placeholder="Số CCCD">
+                    <input type="text" id="manualName" placeholder="Họ và Tên (*)" required>
+                    <input type="text" id="manualDob" placeholder="Ngày sinh (DD/MM/YYYY)">
+                    <select id="manualGender">
+                        <option value="Nam">Nam</option>
+                        <option value="Nữ">Nữ</option>
+                    </select>
+                    <input type="text" id="manualAddress" placeholder="Địa chỉ">
+                    <button type="submit" class="btn-manual">Thêm vào hệ thống</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 2. Lưới dữ liệu & Thao tác -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                <div>
+                    <button class="btn-print-batch" onclick="printSelected()">In các dòng đã chọn</button>
+                    <button class="btn-excel" onclick="exportExcel()">Xuất file Excel</button>
+                </div>
+                <div>
+                    <label><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"> Chọn tất cả</label>
+                </div>
+            </div>
+
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th width="40px">Chọn</th>
+                        <th data-field="stt">STT</th>
+                        <th data-field="cccd">Số CCCD</th>
+                        <th data-field="name">Họ và Tên</th>
+                        <th data-field="dob">Ngày Sinh</th>
+                        <th data-field="gender">Giới Tính</th>
+                        <th data-field="address">Địa Chỉ</th>
+                        <th data-field="createdAt">Ngày Tạo</th>
+                        <th data-field="createdByEmail">Người Tạo</th>
+                        <th width="70px">Thao Tác</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- Dữ liệu đồng bộ Realtime sẽ hiển thị ở đây -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ===== Modal tạo đợt khám mới ===== -->
+<div class="modal-backdrop" id="newBatchModal">
+    <div class="modal-box">
+        <h3>Tạo đợt khám sức khỏe mới</h3>
+        <form id="newBatchForm">
+            <label class="section-label">Tên đợt khám (*)</label>
+            <input type="text" id="newBatchName" placeholder="VD: KSK Công ty ABC - Đợt 1" required>
+            <label class="section-label">Ngày khám</label>
+            <input type="date" id="newBatchDate">
+            <label class="section-label">Địa điểm</label>
+            <input type="text" id="newBatchLocation" placeholder="VD: Cổng số 2">
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" id="cancelNewBatchBtn">Hủy</button>
+                <button type="submit" class="btn-new-batch">Tạo đợt khám</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Vùng ẩn chứa nội dung chuẩn bị in tem -->
+<div id="print-area"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+<script src="app.js"></script>
+<script src="print-export.js"></script>
+
+</body>
+</html>

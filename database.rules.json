@@ -1,0 +1,34 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "batchMeta": {
+      ".read": "auth != null",
+      "$batchId": {
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['name', 'createdByEmail', 'createdAt'])"
+      }
+    },
+
+    "batchRecords": {
+      "$batchId": {
+        ".read": "auth != null",
+        "$recordId": {
+          ".write": "auth != null",
+          ".validate": "newData.hasChildren(['name', 'createdByEmail', 'createdAt'])",
+          "name": { ".validate": "newData.isString() && newData.val().length > 0" },
+          "cccd": { ".validate": "newData.isString()" },
+          "gender": { ".validate": "newData.isString()" }
+        }
+      }
+    },
+
+    "cccd_records": {
+      ".read": true
+    },
+    "config": {
+      ".read": true
+    }
+  }
+}
