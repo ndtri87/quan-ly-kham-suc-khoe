@@ -427,7 +427,7 @@ function renderTable() {
             <td class="editable-cell" data-key="${item.key}" data-field="name">${item.name}</td>
             <td style="text-align: center;">${item.dob}</td>
             <td style="text-align: center;">${item.gender}</td>
-            <td>${item.address}</td>
+            <td data-field="address">${item.address}</td>
             <td style="text-align: center;">${item.phone}</td>
             <td style="text-align: center;">${item.createdAt}</td>
             <td style="text-align: center; font-size: 12px; color: var(--ink-muted);">${item.createdByEmail}</td>
