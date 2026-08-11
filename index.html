@@ -300,8 +300,8 @@
         button:hover { background: var(--line-soft); border-color: var(--ink-muted); }
 
         .btn-excel, .btn-print-batch { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
-        .row-actions { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; }
-        .btn-print, .btn-edit, .btn-delete { padding: 4px 9px; font-size: 10px; }
+        .row-actions { display: flex; gap: 4px; justify-content: center; flex-wrap: nowrap; }
+        .btn-print, .btn-edit, .btn-delete { padding: 4px 8px; font-size: 10px; white-space: nowrap; }
         .btn-delete { color: var(--danger); border-color: var(--danger); }
         .btn-delete:hover { background: var(--danger); color: white; }
         .btn-manual {
@@ -471,7 +471,7 @@
                             <th data-field="phone">SĐT</th>
                             <th data-field="createdAt">Ngày Tạo</th>
                             <th data-field="createdByEmail">Người Tạo</th>
-                            <th width="150px">Thao Tác</th>
+                            <th>Thao Tác</th>
                         </tr>
                     </thead>
                     <tbody id="tableBody">
