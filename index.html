@@ -342,7 +342,7 @@
         tbody tr:nth-child(even) { background: #fafbfc; }
         tbody tr:hover { background: var(--line-soft); }
         td[data-field="name"] { text-transform: uppercase; font-weight: 600; }
-        td[data-field="address"] { white-space: normal; min-width: 220px; }
+        td[data-field="address"], td[data-field="tempAddress"] { white-space: normal; min-width: 220px; }
         td.editable-cell { cursor: text; }
         td.editable-cell:hover { background: var(--line-soft); }
         td.editable-cell input {
@@ -454,6 +454,7 @@
                         <option value="Nữ">Nữ</option>
                     </select>
                     <input type="text" id="manualAddress" placeholder="Địa chỉ">
+                    <input type="text" id="manualTempAddress" placeholder="Địa chỉ tạm trú">
                     <input type="text" id="manualPhone" placeholder="Số điện thoại">
                     <button type="submit" class="btn-manual">Thêm vào hệ thống</button>
                 </form>
@@ -483,6 +484,7 @@
                             <th data-field="dob">Ngày Sinh</th>
                             <th data-field="gender">Giới Tính</th>
                             <th data-field="address">Địa Chỉ</th>
+                            <th data-field="tempAddress">Địa Chỉ Tạm Trú</th>
                             <th data-field="phone">SĐT</th>
                             <th data-field="createdAt">Ngày Tạo</th>
                             <th data-field="createdByEmail">Người Tạo</th>
@@ -535,6 +537,8 @@
             </select>
             <label class="section-label">Địa chỉ</label>
             <input type="text" id="editAddress">
+            <label class="section-label">Địa chỉ tạm trú</label>
+            <input type="text" id="editTempAddress">
             <label class="section-label">Số điện thoại</label>
             <input type="text" id="editPhone">
             <div class="modal-actions">

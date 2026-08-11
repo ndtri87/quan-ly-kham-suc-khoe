@@ -321,6 +321,7 @@ function openEditModal(key) {
     document.getElementById('editDob').value = item.dob || '';
     document.getElementById('editGender').value = item.gender || 'Nam';
     document.getElementById('editAddress').value = item.address || '';
+    document.getElementById('editTempAddress').value = item.tempAddress || '';
     document.getElementById('editPhone').value = item.phone || '';
     editRecordModal.style.display = 'flex';
 }
@@ -343,6 +344,7 @@ editRecordForm.addEventListener('submit', (e) => {
         dob: document.getElementById('editDob').value.trim(),
         gender: document.getElementById('editGender').value,
         address: document.getElementById('editAddress').value.trim(),
+        tempAddress: document.getElementById('editTempAddress').value.trim(),
         phone: document.getElementById('editPhone').value.trim(),
         updatedByEmail: currentUser.email,
         updatedBy: currentUser.uid,
@@ -403,6 +405,7 @@ function renderTable() {
             dob: item.dob || '',
             gender: item.gender || 'Nam',
             address: item.address || '',
+            tempAddress: item.tempAddress || '',
             phone: item.phone || '',
             timestampRaw: exactTime,
             createdAt: formatTimestamp(exactTime),
@@ -428,6 +431,7 @@ function renderTable() {
             <td style="text-align: center;">${item.dob}</td>
             <td style="text-align: center;">${item.gender}</td>
             <td data-field="address">${item.address}</td>
+            <td class="editable-cell" data-key="${item.key}" data-field="tempAddress">${item.tempAddress}</td>
             <td style="text-align: center;">${item.phone}</td>
             <td style="text-align: center;">${item.createdAt}</td>
             <td style="text-align: center; font-size: 12px; color: var(--ink-muted);">${item.createdByEmail}</td>
@@ -750,6 +754,7 @@ manualForm.addEventListener('submit', function (e) {
     let dob = document.getElementById('manualDob').value.trim();
     let gender = document.getElementById('manualGender').value;
     let address = document.getElementById('manualAddress').value.trim();
+    let tempAddress = document.getElementById('manualTempAddress').value.trim();
     let phone = document.getElementById('manualPhone').value.trim();
 
     if (!name) {
@@ -757,7 +762,7 @@ manualForm.addEventListener('submit', function (e) {
         return;
     }
 
-    pushRecord({ cccd, name, dob, gender, address, phone });
+    pushRecord({ cccd, name, dob, gender, address, tempAddress, phone });
 
     manualForm.reset();
     alert("Đã thêm mới thành công!");
