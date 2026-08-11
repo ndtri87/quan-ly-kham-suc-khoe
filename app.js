@@ -17,6 +17,7 @@ const auth = firebase.auth();
 function ref(_db, path) { return path ? _db.ref(path) : _db.ref(); }
 function push(r, data) { return r.push(data); }
 function update(r, updates) { return r.update(updates); }
+function remove(r) { return r.remove(); }
 function onValue(r, cb) { r.on('value', cb); return () => r.off('value', cb); }
 function onAuthStateChanged(a, cb) { return a.onAuthStateChanged(cb); }
 function signInWithEmailAndPassword(a, email, pw) { return a.signInWithEmailAndPassword(email, pw); }
@@ -296,6 +297,62 @@ function updateRecordField(key, field, rawValue) {
     });
 }
 
+// ===== Xóa bản ghi =====
+function deleteRecord(key) {
+    if (!activeBatchId) return;
+    const item = rawRecordsCache && rawRecordsCache[key];
+    const label = item && item.name ? `"${item.name}"` : 'này';
+    if (!confirm(`Xóa bản ghi ${label}? Không thể hoàn tác.`)) return;
+    remove(ref(db, `batchRecords/${activeBatchId}/${key}`));
+}
+
+// ===== Sửa bản ghi (modal đầy đủ các trường) =====
+const editRecordModal = document.getElementById('editRecordModal');
+const editRecordForm = document.getElementById('editRecordForm');
+const cancelEditBtn = document.getElementById('cancelEditBtn');
+let editingRecordKey = null;
+
+function openEditModal(key) {
+    const item = rawRecordsCache && rawRecordsCache[key];
+    if (!item) return;
+    editingRecordKey = key;
+    document.getElementById('editCccd').value = item.cccd || '';
+    document.getElementById('editName').value = item.name || '';
+    document.getElementById('editDob').value = item.dob || '';
+    document.getElementById('editGender').value = item.gender || 'Nam';
+    document.getElementById('editAddress').value = item.address || '';
+    document.getElementById('editPhone').value = item.phone || '';
+    editRecordModal.style.display = 'flex';
+}
+
+cancelEditBtn.addEventListener('click', () => {
+    editRecordModal.style.display = 'none';
+    editingRecordKey = null;
+});
+
+editRecordForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!editingRecordKey || !activeBatchId) return;
+
+    const name = document.getElementById('editName').value.trim();
+    if (!name) { alert('Vui lòng nhập họ và tên!'); return; }
+
+    update(ref(db, `batchRecords/${activeBatchId}/${editingRecordKey}`), {
+        cccd: document.getElementById('editCccd').value.trim(),
+        name: toUpperVN(name),
+        dob: document.getElementById('editDob').value.trim(),
+        gender: document.getElementById('editGender').value,
+        address: document.getElementById('editAddress').value.trim(),
+        phone: document.getElementById('editPhone').value.trim(),
+        updatedByEmail: currentUser.email,
+        updatedBy: currentUser.uid,
+        updatedAt: Date.now()
+    });
+
+    editRecordModal.style.display = 'none';
+    editingRecordKey = null;
+});
+
 // ===== Sắp xếp dữ liệu ngày sinh (DD/MM/YYYY) theo thứ tự thời gian thực =====
 function dobSortKey(dob) {
     const parts = (dob || '').split('/');
@@ -346,6 +403,7 @@ function renderTable() {
             dob: item.dob || '',
             gender: item.gender || 'Nam',
             address: item.address || '',
+            phone: item.phone || '',
             timestampRaw: exactTime,
             createdAt: formatTimestamp(exactTime),
             createdByEmail: item.createdByEmail || '---'
@@ -370,10 +428,13 @@ function renderTable() {
             <td style="text-align: center;">${item.dob}</td>
             <td style="text-align: center;">${item.gender}</td>
             <td>${item.address}</td>
+            <td style="text-align: center;">${item.phone}</td>
             <td style="text-align: center;">${item.createdAt}</td>
             <td style="text-align: center; font-size: 12px; color: var(--ink-muted);">${item.createdByEmail}</td>
-            <td style="text-align: center;">
+            <td class="row-actions">
                 <button class="btn-print" onclick="printSingleSTT('${item.sttFormatted}', '${item.name}', '${item.dob}', '${item.gender}')">In Tem</button>
+                <button class="btn-edit" onclick="openEditModal('${item.key}')">Sửa</button>
+                <button class="btn-delete" onclick="deleteRecord('${item.key}')">Xóa</button>
             </td>
         </tr>`;
         tableBody.insertAdjacentHTML('beforeend', row);
@@ -689,13 +750,14 @@ manualForm.addEventListener('submit', function (e) {
     let dob = document.getElementById('manualDob').value.trim();
     let gender = document.getElementById('manualGender').value;
     let address = document.getElementById('manualAddress').value.trim();
+    let phone = document.getElementById('manualPhone').value.trim();
 
     if (!name) {
         alert("Vui lòng nhập tên khách hàng!");
         return;
     }
 
-    pushRecord({ cccd, name, dob, gender, address });
+    pushRecord({ cccd, name, dob, gender, address, phone });
 
     manualForm.reset();
     alert("Đã thêm mới thành công!");

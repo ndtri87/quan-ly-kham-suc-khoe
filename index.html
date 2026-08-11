@@ -300,7 +300,10 @@
         button:hover { background: var(--line-soft); border-color: var(--ink-muted); }
 
         .btn-excel, .btn-print-batch { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
-        .btn-print { padding: 4px 9px; font-size: 10px; }
+        .row-actions { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; }
+        .btn-print, .btn-edit, .btn-delete { padding: 4px 9px; font-size: 10px; }
+        .btn-delete { color: var(--danger); border-color: var(--danger); }
+        .btn-delete:hover { background: var(--danger); color: white; }
         .btn-manual {
             background: var(--accent); color: white; border: 1px solid var(--accent);
             width: 100%; margin-top: 10px;
@@ -436,6 +439,7 @@
                         <option value="Nữ">Nữ</option>
                     </select>
                     <input type="text" id="manualAddress" placeholder="Địa chỉ">
+                    <input type="text" id="manualPhone" placeholder="Số điện thoại">
                     <button type="submit" class="btn-manual">Thêm vào hệ thống</button>
                 </form>
             </div>
@@ -463,9 +467,10 @@
                         <th data-field="dob">Ngày Sinh</th>
                         <th data-field="gender">Giới Tính</th>
                         <th data-field="address">Địa Chỉ</th>
+                        <th data-field="phone">SĐT</th>
                         <th data-field="createdAt">Ngày Tạo</th>
                         <th data-field="createdByEmail">Người Tạo</th>
-                        <th width="70px">Thao Tác</th>
+                        <th width="150px">Thao Tác</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody">
@@ -490,6 +495,34 @@
             <div class="modal-actions">
                 <button type="button" class="btn-cancel" id="cancelNewBatchBtn">Hủy</button>
                 <button type="submit" class="btn-new-batch">Tạo đợt khám</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ===== Modal sửa bản ghi ===== -->
+<div class="modal-backdrop" id="editRecordModal">
+    <div class="modal-box">
+        <h3>Sửa thông tin</h3>
+        <form id="editRecordForm">
+            <label class="section-label">Số CCCD</label>
+            <input type="text" id="editCccd">
+            <label class="section-label">Họ và Tên (*)</label>
+            <input type="text" id="editName" required>
+            <label class="section-label">Ngày sinh (DD/MM/YYYY)</label>
+            <input type="text" id="editDob">
+            <label class="section-label">Giới tính</label>
+            <select id="editGender">
+                <option value="Nam">Nam</option>
+                <option value="Nữ">Nữ</option>
+            </select>
+            <label class="section-label">Địa chỉ</label>
+            <input type="text" id="editAddress">
+            <label class="section-label">Số điện thoại</label>
+            <input type="text" id="editPhone">
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" id="cancelEditBtn">Hủy</button>
+                <button type="submit" class="btn-new-batch">Lưu</button>
             </div>
         </form>
     </div>
