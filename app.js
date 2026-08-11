@@ -546,6 +546,30 @@ async function startCameraWith(cameraIdOrConfig) {
     }
 }
 
+// facingMode (kể cả "exact") không đáng tin cậy trên Safari/iPhone — có thể "thành
+// công" nhưng vẫn âm thầm trả về camera trước. Cách chắc chắn hơn: chọn đúng camera
+// theo TÊN (label) trả về từ getCameras(), ưu tiên "Back Camera" thường (không phải
+// ultra wide/tele, vì góc quá rộng sẽ khó lấy nét cận cảnh mã QR nhỏ).
+function pickBackCameraId(devices) {
+    if (!devices || devices.length === 0) return null;
+    if (devices.length === 1) return devices[0].id;
+
+    const isBack = (label) => /back|rear|environment/i.test(label || '');
+    const isFront = (label) => /front|user|face|selfie/i.test(label || '');
+    const isWideOrTele = (label) => /ultra ?wide|tele/i.test(label || '');
+
+    let candidates = devices.filter((d) => isBack(d.label) && !isWideOrTele(d.label));
+    if (candidates.length > 0) return candidates[0].id;
+
+    candidates = devices.filter((d) => isBack(d.label));
+    if (candidates.length > 0) return candidates[0].id;
+
+    candidates = devices.filter((d) => !isFront(d.label));
+    if (candidates.length > 0) return candidates[0].id;
+
+    return null; // không nhận diện được camera nào chắc chắn không phải camera trước
+}
+
 openCameraScanBtn.addEventListener('click', async () => {
     isProcessingScan = false;
     cameraScanModal.style.display = 'flex';
@@ -575,13 +599,14 @@ openCameraScanBtn.addEventListener('click', async () => {
     } catch (err) {
         cameraDeviceList = [];
     }
-    currentCameraIndex = -1;
 
-    // Luôn mở bằng camera SAU (environment): thử "exact" trước để chắc chắn đúng
-    // camera sau, nếu máy nào không thoả được exact thì rơi về "ideal" thay vì báo lỗi
-    // luôn. cameraIdOrConfig chỉ được phép có đúng 1 key nên không gộp width/height vào đây.
-    const gotExact = await startCameraWith({ facingMode: { exact: 'environment' } });
-    if (!gotExact) {
+    const backCameraId = pickBackCameraId(cameraDeviceList);
+    if (backCameraId) {
+        currentCameraIndex = cameraDeviceList.findIndex((d) => d.id === backCameraId);
+        const ok = await startCameraWith(backCameraId);
+        if (!ok) await startCameraWith({ facingMode: { ideal: 'environment' } });
+    } else {
+        currentCameraIndex = -1;
         await startCameraWith({ facingMode: { ideal: 'environment' } });
     }
 });
