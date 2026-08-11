@@ -74,8 +74,8 @@ function exportExcel() {
     });
 
     for (let row of cloneTable.rows) {
-        row.deleteCell(11); // Xóa cột Thao tác
-        row.deleteCell(10); // Xóa cột Người tạo
+        row.deleteCell(13); // Xóa cột Thao tác
+        row.deleteCell(12); // Xóa cột Người tạo
         row.deleteCell(0); // Xóa cột Chọn
     }
 
@@ -95,7 +95,8 @@ function exportExcel() {
         ws[cellKey].z = '@';
     }
 
-    // Độ rộng cột theo đúng thứ tự: STT, CCCD, Họ và Tên, Ngày Sinh, Giới Tính, Địa Chỉ, Địa Chỉ Tạm Trú, SĐT, Ngày Tạo
+    // Độ rộng cột theo đúng thứ tự: STT, CCCD, Họ và Tên, Ngày Sinh, Giới Tính, Địa Chỉ,
+    // Địa Chỉ Tạm Trú, SĐT, Điều Kiện Khám, Đồng Kiểm, Ngày Tạo
     ws['!cols'] = [
         { wch: 6 },
         { wch: 16 },
@@ -105,6 +106,8 @@ function exportExcel() {
         { wch: 34 },
         { wch: 34 },
         { wch: 14 },
+        { wch: 18 },
+        { wch: 40 },
         { wch: 20 }
     ];
 

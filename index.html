@@ -357,6 +357,21 @@
             border: 1px solid var(--accent); border-radius: 2px;
         }
 
+        /* ===== Badge điều kiện khám & trạng thái đồng kiểm ===== */
+        .badge {
+            display: inline-block; padding: 3px 9px; border-radius: 10px;
+            font-size: 11px; font-weight: 700; white-space: nowrap; letter-spacing: .01em;
+        }
+        .badge-pass { background: #e3f5e9; color: #1e7a42; border: 1px solid #b7e2c6; }
+        .badge-warn { background: #fdf3d9; color: #8a6510; border: 1px solid #f0dfa0; }
+        .badge-fail { background: #fbe4e4; color: var(--danger); border: 1px solid #f0c2c2; }
+        .badge-na { background: var(--line-soft); color: var(--ink-muted); border: 1px solid var(--line); }
+        .verify-yes { color: #1e7a42; font-size: 11px; font-weight: 600; line-height: 1.4; }
+        .verify-no { color: var(--ink-muted); font-size: 11px; }
+        .btn-verify { color: var(--accent); border-color: var(--accent-soft-border); }
+        .btn-verify:hover { background: var(--accent-soft); }
+        .btn-verify.done { color: var(--ink-muted); border-color: var(--line); }
+
         /* ===== CSS In Tem STT khổ 5cm x 3cm ===== */
         .number-container {
             width: 5cm;
@@ -494,6 +509,8 @@
                             <th data-field="address">Địa Chỉ</th>
                             <th data-field="tempAddress">Địa Chỉ Tạm Trú</th>
                             <th data-field="phone">SĐT</th>
+                            <th data-field="eligibility">Điều Kiện Khám</th>
+                            <th data-field="verified">Đồng Kiểm</th>
                             <th data-field="createdAt">Ngày Tạo</th>
                             <th data-field="createdByEmail">Người Tạo</th>
                             <th>Thao Tác</th>
@@ -519,6 +536,8 @@
             <input type="date" id="newBatchDate">
             <label class="section-label">Địa điểm</label>
             <input type="text" id="newBatchLocation" placeholder="VD: Cổng số 2">
+            <label class="section-label">Khu vực đủ điều kiện khám (để trống nếu không áp dụng)</label>
+            <input type="text" id="newBatchEligibleArea" placeholder="VD: Đông Hưng Thuận, Bà Điểm">
             <div class="modal-actions">
                 <button type="button" class="btn-cancel" id="cancelNewBatchBtn">Hủy</button>
                 <button type="submit" class="btn-new-batch">Tạo đợt khám</button>
@@ -538,6 +557,8 @@
             <input type="date" id="editBatchDate">
             <label class="section-label">Địa điểm</label>
             <input type="text" id="editBatchLocation">
+            <label class="section-label">Khu vực đủ điều kiện khám (để trống nếu không áp dụng)</label>
+            <input type="text" id="editBatchEligibleArea" placeholder="VD: Đông Hưng Thuận, Bà Điểm">
             <label class="section-label">Trạng thái</label>
             <select id="editBatchStatus">
                 <option value="active">Đang hoạt động</option>

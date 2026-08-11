@@ -87,6 +87,41 @@ function getTimeFromFirebaseId(id) {
     return timestamp;
 }
 
+// Bỏ dấu tiếng Việt + hạ về chữ thường, dùng để so khớp địa chỉ không phân biệt
+// hoa/thường hay lỗi gõ dấu của nhân viên
+function normalizeVN(str) {
+    return (str || '').toString()
+        .toLowerCase()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/đ/g, 'd');
+}
+
+// Đọc danh sách khu vực đủ điều kiện của đợt khám (cấu hình trong "Sửa đợt khám",
+// cách nhau bằng dấu phẩy). Trống = đợt khám này không áp dụng luật điều kiện.
+function getEligibleKeywords(batchId) {
+    const meta = batchListCache[batchId] || {};
+    const raw = (meta.eligibleAreaKeyword || '').trim();
+    if (!raw) return [];
+    return raw.split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+// Xác định trạng thái điều kiện khám của 1 bản ghi dựa trên Địa Chỉ / Địa Chỉ Tạm Trú.
+// Tính lại mỗi lần gọi (không lưu cứng) nên luôn khớp dữ liệu mới nhất sau khi sửa.
+function computeEligibility(item, keywords) {
+    if (!keywords.length) return { code: 'na', label: 'Không áp dụng' };
+
+    const matchAny = (text) => {
+        if (!text) return false;
+        const norm = normalizeVN(text);
+        return keywords.some((k) => norm.includes(normalizeVN(k)));
+    };
+
+    if (matchAny(item.address)) return { code: 'pass', label: 'Đủ điều kiện' };
+    if (matchAny(item.tempAddress)) return { code: 'pass', label: 'Đủ điều kiện (tạm trú)' };
+    if (!item.tempAddress) return { code: 'warn', label: 'Cần bổ sung tạm trú' };
+    return { code: 'fail', label: 'Không đủ điều kiện' };
+}
+
 function setEntryEnabled(enabled) {
     document.querySelectorAll('#entrySections input, #entrySections select, #entrySections button')
         .forEach(el => { el.disabled = !enabled; });
@@ -234,6 +269,7 @@ newBatchForm.addEventListener('submit', async (e) => {
     const name = document.getElementById('newBatchName').value.trim();
     const date = document.getElementById('newBatchDate').value;
     const location = document.getElementById('newBatchLocation').value.trim();
+    const eligibleAreaKeyword = document.getElementById('newBatchEligibleArea').value.trim();
     if (!name) { alert('Vui lòng nhập tên đợt khám!'); return; }
 
     const newRef = push(ref(db, 'batchMeta'));
@@ -241,6 +277,7 @@ newBatchForm.addEventListener('submit', async (e) => {
     const updates = {};
     updates[`batchMeta/${id}`] = {
         name, date: date || '', location: location || '',
+        eligibleAreaKeyword: eligibleAreaKeyword || '',
         status: 'active',
         createdByEmail: currentUser.email,
         createdAt: Date.now()
@@ -257,6 +294,7 @@ editBatchBtn.addEventListener('click', () => {
     document.getElementById('editBatchName').value = meta.name || '';
     document.getElementById('editBatchDate').value = meta.date || '';
     document.getElementById('editBatchLocation').value = meta.location || '';
+    document.getElementById('editBatchEligibleArea').value = meta.eligibleAreaKeyword || '';
     document.getElementById('editBatchStatus').value = meta.status || 'active';
     editBatchModal.style.display = 'flex';
 });
@@ -273,6 +311,7 @@ editBatchForm.addEventListener('submit', (e) => {
         name,
         date: document.getElementById('editBatchDate').value,
         location: document.getElementById('editBatchLocation').value.trim(),
+        eligibleAreaKeyword: document.getElementById('editBatchEligibleArea').value.trim(),
         status: document.getElementById('editBatchStatus').value
     });
     editBatchModal.style.display = 'none';
@@ -324,6 +363,22 @@ function isDuplicateCccdInBatch(cccd) {
     return Object.values(rawRecordsCache).some((item) => item.cccd === cccd);
 }
 
+// Cảnh báo ngay sau khi thêm hồ sơ nếu địa chỉ không thuộc khu vực đủ điều kiện
+// khám của đợt khám đang chọn (xem computeEligibility). Trả về true nếu đã cảnh báo.
+function warnIfNotEligible(data) {
+    const keywords = getEligibleKeywords(activeBatchId);
+    const elig = computeEligibility(data, keywords);
+    if (elig.code === 'warn') {
+        alert(`Địa chỉ "${data.address || '(trống)'}" không thuộc khu vực đủ điều kiện khám.\nVui lòng bổ sung Địa Chỉ Tạm Trú cho hồ sơ này (sửa trực tiếp trên lưới hoặc bấm Sửa).`);
+        return true;
+    }
+    if (elig.code === 'fail') {
+        alert(`Cả Địa Chỉ và Địa Chỉ Tạm Trú đều không thuộc khu vực đủ điều kiện khám.\n=> Hồ sơ KHÔNG ĐỦ ĐIỀU KIỆN KHÁM.`);
+        return true;
+    }
+    return false;
+}
+
 // ===== Ghi bản ghi mới vào đợt khám đang chọn =====
 function pushRecord(data) {
     if (!activeBatchId) {
@@ -350,6 +405,27 @@ function updateRecordField(key, field, rawValue) {
         updatedBy: currentUser.uid,
         updatedAt: Date.now()
     });
+}
+
+// ===== Xác nhận / hủy "đồng kiểm" hồ sơ (nhân viên kiểm duyệt xác nhận đã kiểm tra lại) =====
+function toggleVerify(key) {
+    if (!activeBatchId) return;
+    const item = rawRecordsCache && rawRecordsCache[key];
+    if (!item) return;
+
+    if (item.verifiedAt) {
+        update(ref(db, `batchRecords/${activeBatchId}/${key}`), {
+            verifiedAt: null,
+            verifiedBy: null,
+            verifiedByEmail: null
+        });
+    } else {
+        update(ref(db, `batchRecords/${activeBatchId}/${key}`), {
+            verifiedAt: Date.now(),
+            verifiedBy: currentUser.uid,
+            verifiedByEmail: currentUser.email
+        });
+    }
 }
 
 // ===== Xóa bản ghi =====
@@ -424,6 +500,8 @@ function getSortValue(item, field) {
         case 'stt': return item.sttNum;
         case 'createdAt': return item.timestampRaw;
         case 'dob': return dobSortKey(item.dob);
+        case 'eligibility': return item.eligibility.label;
+        case 'verified': return item.verifiedAt || 0;
         default: return (item[field] || '').toString().toLocaleLowerCase('vi-VN');
     }
 }
@@ -447,6 +525,8 @@ function renderTable() {
         return timeA - timeB;
     });
 
+    const eligibleKeywords = getEligibleKeywords(activeBatchId);
+
     let formattedRecords = records.map(([key, item], index) => {
         let assignedNum = (item.customSTT !== undefined && item.customSTT !== '') ? Number(item.customSTT) : (startNum + index);
         let exactTime = item.timestamp || getTimeFromFirebaseId(key);
@@ -464,7 +544,10 @@ function renderTable() {
             phone: item.phone || '',
             timestampRaw: exactTime,
             createdAt: formatTimestamp(exactTime),
-            createdByEmail: item.createdByEmail || '---'
+            createdByEmail: item.createdByEmail || '---',
+            eligibility: computeEligibility(item, eligibleKeywords),
+            verifiedAt: item.verifiedAt || 0,
+            verifiedByEmail: item.verifiedByEmail || ''
         };
     });
 
@@ -478,6 +561,14 @@ function renderTable() {
     });
 
     formattedRecords.forEach((item) => {
+        const badgeClass = 'badge-' + item.eligibility.code;
+        const canPrint = item.eligibility.code === 'pass' || item.eligibility.code === 'na';
+        const verified = !!item.verifiedAt;
+        const verifyCell = verified
+            ? `<span class="verify-yes">✓ Đã đồng kiểm — ${item.verifiedByEmail} — ${formatTimestamp(item.verifiedAt)}</span>`
+            : `<span class="verify-no">Chưa đồng kiểm</span>`;
+        const verifyBtnLabel = verified ? 'Hủy đồng kiểm' : 'Đồng kiểm';
+
         let row = `<tr>
             <td style="text-align: center;"><input type="checkbox" class="row-checkbox" data-stt="${item.sttFormatted}" data-name="${item.name}" data-dob="${item.dob}" data-gender="${item.gender}"></td>
             <td class="editable-cell" data-key="${item.key}" data-field="customSTT" style="text-align: center; font-weight: bold;">${item.sttFormatted}</td>
@@ -488,10 +579,13 @@ function renderTable() {
             <td data-field="address">${item.address}</td>
             <td class="editable-cell" data-key="${item.key}" data-field="tempAddress">${item.tempAddress}</td>
             <td class="editable-cell" data-key="${item.key}" data-field="phone" style="text-align: center;">${item.phone}</td>
+            <td style="text-align: center;"><span class="badge ${badgeClass}">${item.eligibility.label}</span></td>
+            <td style="text-align: center;">${verifyCell}</td>
             <td style="text-align: center;">${item.createdAt}</td>
             <td style="text-align: center; font-size: 12px; color: var(--ink-muted);">${item.createdByEmail}</td>
             <td class="row-actions">
-                <button class="btn-print" onclick="printSingleSTT('${item.sttFormatted}', '${item.name}', '${item.dob}', '${item.gender}')">In Tem</button>
+                <button class="btn-print" ${canPrint ? '' : 'disabled title="Hồ sơ chưa đủ điều kiện khám, không thể in tem"'} onclick="printSingleSTT('${item.sttFormatted}', '${item.name}', '${item.dob}', '${item.gender}')">In Tem</button>
+                <button class="btn-verify ${verified ? 'done' : ''}" onclick="toggleVerify('${item.key}')">${verifyBtnLabel}</button>
                 <button class="btn-edit" onclick="openEditModal('${item.key}')">Sửa</button>
                 <button class="btn-delete" onclick="deleteRecord('${item.key}')">Xóa</button>
             </td>
@@ -552,13 +646,15 @@ function handleScannedCccdPayload(rawData) {
             dobFormatted = `${dobRaw.substring(0, 2)}/${dobRaw.substring(2, 4)}/${dobRaw.substring(4, 8)}`;
         }
 
-        pushRecord({
+        const record = {
             cccd: cccd,
             name: name,
             dob: dobFormatted,
             gender: data[4],
             address: data[5]
-        });
+        };
+        pushRecord(record);
+        warnIfNotEligible(record);
         return true;
     }
 
@@ -827,8 +923,11 @@ manualForm.addEventListener('submit', function (e) {
         return;
     }
 
-    pushRecord({ cccd, name, dob, gender, address, tempAddress, phone });
+    const record = { cccd, name, dob, gender, address, tempAddress, phone };
+    pushRecord(record);
+    if (!warnIfNotEligible(record)) {
+        alert("Đã thêm mới thành công!");
+    }
 
     manualForm.reset();
-    alert("Đã thêm mới thành công!");
 });
