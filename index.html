@@ -201,7 +201,7 @@
         .btn-logout:hover { background: var(--line-soft); border-color: var(--ink-muted); }
 
         .no-batch-banner {
-            max-width: 1100px;
+            max-width: 1600px;
             margin: 20px auto 0;
             padding: 12px 16px;
             background: var(--surface);
@@ -213,7 +213,7 @@
             display: none;
         }
 
-        .container { max-width: 1100px; margin: auto; padding: 20px; }
+        .container { max-width: 1600px; margin: auto; padding: 20px; }
 
         .card {
             background: var(--surface);
@@ -310,8 +310,9 @@
         }
         .btn-manual:hover { background: var(--accent-hover); border-color: var(--accent-hover); box-shadow: var(--shadow-sm); }
 
+        .table-scroll { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border-bottom: 1px solid var(--line-soft); padding: 8px; text-align: left; font-size: 13px; }
+        th, td { border-bottom: 1px solid var(--line-soft); padding: 8px; text-align: left; font-size: 13px; white-space: nowrap; }
         th {
             background: var(--surface);
             border-bottom: 1px solid var(--line);
@@ -321,7 +322,6 @@
             letter-spacing: .03em;
             text-transform: uppercase;
             color: var(--ink-muted);
-            white-space: nowrap;
         }
         th[data-field] { cursor: pointer; user-select: none; }
         th[data-field]:hover { color: var(--ink); }
@@ -457,26 +457,28 @@
                 </div>
             </div>
 
-            <table id="dataTable">
-                <thead>
-                    <tr>
-                        <th width="40px">Chọn</th>
-                        <th data-field="stt">STT</th>
-                        <th data-field="cccd">Số CCCD</th>
-                        <th data-field="name">Họ và Tên</th>
-                        <th data-field="dob">Ngày Sinh</th>
-                        <th data-field="gender">Giới Tính</th>
-                        <th data-field="address">Địa Chỉ</th>
-                        <th data-field="phone">SĐT</th>
-                        <th data-field="createdAt">Ngày Tạo</th>
-                        <th data-field="createdByEmail">Người Tạo</th>
-                        <th width="150px">Thao Tác</th>
-                    </tr>
-                </thead>
-                <tbody id="tableBody">
-                    <!-- Dữ liệu đồng bộ Realtime sẽ hiển thị ở đây -->
-                </tbody>
-            </table>
+            <div class="table-scroll">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th width="40px">Chọn</th>
+                            <th data-field="stt">STT</th>
+                            <th data-field="cccd">Số CCCD</th>
+                            <th data-field="name">Họ và Tên</th>
+                            <th data-field="dob">Ngày Sinh</th>
+                            <th data-field="gender">Giới Tính</th>
+                            <th data-field="address">Địa Chỉ</th>
+                            <th data-field="phone">SĐT</th>
+                            <th data-field="createdAt">Ngày Tạo</th>
+                            <th data-field="createdByEmail">Người Tạo</th>
+                            <th width="150px">Thao Tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Dữ liệu đồng bộ Realtime sẽ hiển thị ở đây -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
