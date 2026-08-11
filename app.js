@@ -318,6 +318,12 @@ tableHead.addEventListener('click', (e) => {
 
 updateSortHeaders();
 
+// ===== Kiểm tra trùng CCCD trong đợt khám đang chọn =====
+function isDuplicateCccdInBatch(cccd) {
+    if (!rawRecordsCache) return false;
+    return Object.values(rawRecordsCache).some((item) => item.cccd === cccd);
+}
+
 // ===== Ghi bản ghi mới vào đợt khám đang chọn =====
 function pushRecord(data) {
     if (!activeBatchId) {
@@ -808,6 +814,11 @@ manualForm.addEventListener('submit', function (e) {
 
     if (!name) {
         alert("Vui lòng nhập tên khách hàng!");
+        return;
+    }
+
+    if (cccd && isDuplicateCccdInBatch(cccd)) {
+        alert(`Số CCCD ${cccd} đã có trong đợt khám này, không thể thêm trùng!`);
         return;
     }
 
