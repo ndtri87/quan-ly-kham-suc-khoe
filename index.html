@@ -6,6 +6,8 @@
     <title>Bệnh Viện Đa Khoa Tâm Trí Sài Gòn - Quản lý khám sức khỏe</title>
     <!-- Thư viện đọc & xuất Excel (SheetJS) -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <!-- Thư viện quét mã QR bằng camera -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
     <style>
         :root {
@@ -244,6 +246,33 @@
             border-color: var(--accent-soft-border);
         }
         .scan-input:focus { background: var(--surface); border-color: var(--accent); }
+        .btn-camera-scan {
+            width: 100%;
+            margin-top: 10px;
+            background: var(--surface);
+            color: var(--accent);
+            border: 1px solid var(--accent-soft-border);
+        }
+        .btn-camera-scan:hover { background: var(--surface); border-color: var(--accent); }
+
+        .qr-reader-view {
+            width: 100%;
+            min-height: 260px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            overflow: hidden;
+            background: #000;
+        }
+        .qr-reader-view video { width: 100%; display: block; }
+        .camera-scan-status {
+            font-size: 12px;
+            color: var(--ink-muted);
+            min-height: 16px;
+            margin-top: 10px;
+            text-align: center;
+        }
+        .camera-scan-status.error { color: var(--danger); }
+        .camera-modal-box { width: 420px; }
 
         .manual-form {
             display: grid;
@@ -392,6 +421,7 @@
             <div class="card scan-card">
                 <label class="section-label">Quét mã QR CCCD</label>
                 <input type="text" id="cccdInput" class="scan-input" placeholder="Đặt con trỏ vào đây và quét mã QR CCCD..." autocomplete="off">
+                <button type="button" class="btn-camera-scan" id="openCameraScanBtn">Quét bằng Camera điện thoại</button>
             </div>
 
             <!-- Thêm mới thủ công -->
@@ -462,6 +492,19 @@
                 <button type="submit" class="btn-new-batch">Tạo đợt khám</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- ===== Modal quét CCCD bằng Camera ===== -->
+<div class="modal-backdrop" id="cameraScanModal">
+    <div class="modal-box camera-modal-box">
+        <h3>Quét CCCD bằng Camera</h3>
+        <div id="qrReaderView" class="qr-reader-view"></div>
+        <div class="camera-scan-status" id="cameraScanStatus"></div>
+        <div class="modal-actions">
+            <button type="button" class="btn-cancel" id="switchCameraBtn">Đổi Camera</button>
+            <button type="button" class="btn-cancel" id="closeCameraScanBtn">Đóng</button>
+        </div>
     </div>
 </div>
 

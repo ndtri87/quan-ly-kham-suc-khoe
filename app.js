@@ -413,36 +413,119 @@ tableBody.addEventListener('click', (e) => {
     input.addEventListener('blur', commit);
 });
 
-// ===== 3. Xử lý khi quét mã QR CCCD =====
+// ===== 3. Xử lý khi quét mã QR CCCD (dùng chung cho máy quét vật lý và camera) =====
+function handleScannedCccdPayload(rawData) {
+    let data = (rawData || '').trim().split('|');
+
+    if (data.length >= 6) {
+        let cccd = data[0];
+        let name = data[2];
+        let dobRaw = data[3];
+
+        let dobFormatted = dobRaw;
+        if (dobRaw.length === 8) {
+            dobFormatted = `${dobRaw.substring(0, 2)}/${dobRaw.substring(2, 4)}/${dobRaw.substring(4, 8)}`;
+        }
+
+        pushRecord({
+            cccd: cccd,
+            name: name,
+            dob: dobFormatted,
+            gender: data[4],
+            address: data[5]
+        });
+        return true;
+    }
+
+    alert("Dữ liệu quét không phải mã QR CCCD hợp lệ!");
+    return false;
+}
+
 const cccdInput = document.getElementById('cccdInput');
 cccdInput.addEventListener('keypress', function (e) {
     if (e.key === 'Enter') {
         e.preventDefault();
-        let rawData = this.value.trim();
-        let data = rawData.split('|');
-
-        if (data.length >= 6) {
-            let cccd = data[0];
-            let name = data[2];
-            let dobRaw = data[3];
-
-            let dobFormatted = dobRaw;
-            if (dobRaw.length === 8) {
-                dobFormatted = `${dobRaw.substring(0, 2)}/${dobRaw.substring(2, 4)}/${dobRaw.substring(4, 8)}`;
-            }
-
-            pushRecord({
-                cccd: cccd,
-                name: name,
-                dob: dobFormatted,
-                gender: data[4],
-                address: data[5]
-            });
-        } else {
-            alert("Dữ liệu quét không phải mã QR CCCD hợp lệ!");
-        }
+        handleScannedCccdPayload(this.value);
         this.value = '';
     }
+});
+
+// ===== 3b. Quét CCCD bằng Camera điện thoại (tùy chọn thêm, không thay thế máy quét) =====
+const openCameraScanBtn = document.getElementById('openCameraScanBtn');
+const cameraScanModal = document.getElementById('cameraScanModal');
+const closeCameraScanBtn = document.getElementById('closeCameraScanBtn');
+const switchCameraBtn = document.getElementById('switchCameraBtn');
+const cameraScanStatus = document.getElementById('cameraScanStatus');
+
+let html5QrCode = null;
+let cameraDeviceList = [];
+let currentCameraIndex = 0;
+let isProcessingScan = false;
+
+function setCameraStatus(msg, isError) {
+    cameraScanStatus.textContent = msg || '';
+    cameraScanStatus.classList.toggle('error', !!isError);
+}
+
+function stopCameraIfRunning() {
+    if (!html5QrCode) return Promise.resolve();
+    return html5QrCode.stop().catch(() => {});
+}
+
+function onCameraScanSuccess(decodedText) {
+    if (isProcessingScan) return;
+    isProcessingScan = true;
+    stopCameraIfRunning().then(() => {
+        cameraScanModal.style.display = 'none';
+        handleScannedCccdPayload(decodedText);
+    });
+}
+
+async function startCameraAt(index) {
+    setCameraStatus('Đang mở camera...');
+    const cameraId = cameraDeviceList.length > 0 ? cameraDeviceList[index].id : { facingMode: 'environment' };
+    try {
+        await html5QrCode.start(cameraId, { fps: 10, qrbox: 250 }, onCameraScanSuccess, () => {});
+        setCameraStatus('Đưa mã QR trên CCCD vào giữa khung hình.');
+    } catch (err) {
+        console.error(err);
+        setCameraStatus('Không mở được camera: ' + (err.message || err), true);
+    }
+}
+
+openCameraScanBtn.addEventListener('click', async () => {
+    isProcessingScan = false;
+    cameraScanModal.style.display = 'flex';
+
+    if (!window.isSecureContext) {
+        setCameraStatus('Tính năng camera chỉ hoạt động khi mở trang qua đường link https (bản đã publish) — không dùng được khi mở trực tiếp file trên máy.', true);
+        return;
+    }
+
+    if (!html5QrCode) html5QrCode = new Html5Qrcode('qrReaderView');
+
+    try {
+        cameraDeviceList = await Html5Qrcode.getCameras();
+    } catch (err) {
+        cameraDeviceList = [];
+    }
+    currentCameraIndex = 0;
+    startCameraAt(currentCameraIndex);
+});
+
+closeCameraScanBtn.addEventListener('click', async () => {
+    await stopCameraIfRunning();
+    cameraScanModal.style.display = 'none';
+});
+
+switchCameraBtn.addEventListener('click', async () => {
+    if (cameraDeviceList.length < 2) {
+        setCameraStatus('Máy chỉ có 1 camera.', true);
+        return;
+    }
+    await stopCameraIfRunning();
+    currentCameraIndex = (currentCameraIndex + 1) % cameraDeviceList.length;
+    startCameraAt(currentCameraIndex);
 });
 
 // ===== 4. Xử lý thêm mới thủ công =====
