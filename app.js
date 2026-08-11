@@ -469,7 +469,13 @@ function setCameraStatus(msg, isError) {
 
 function stopCameraIfRunning() {
     if (!html5QrCode) return Promise.resolve();
-    return html5QrCode.stop().catch(() => {});
+    // .stop() có thể throw đồng bộ (không phải reject promise) nếu camera chưa từng
+    // start thành công — bọc try/catch để không bao giờ làm treo luồng gọi nó
+    try {
+        return Promise.resolve(html5QrCode.stop()).catch(() => {});
+    } catch (err) {
+        return Promise.resolve();
+    }
 }
 
 function onCameraScanSuccess(decodedText) {
@@ -490,13 +496,19 @@ function adaptiveQrBox(viewfinderWidth, viewfinderHeight) {
 }
 
 // Yêu cầu độ phân giải cao hơn mặc định — mã QR trên CCCD gắn chip khá dày đặc,
-// độ phân giải thấp (mặc định trình duyệt hay dùng) thường không đọc nổi
+// độ phân giải thấp (mặc định trình duyệt hay dùng) thường không đọc nổi.
+// Lưu ý: cameraIdOrConfig chỉ được phép có ĐÚNG 1 key (facingMode HOẶC deviceId),
+// nên width/height phải truyền riêng qua videoConstraints, không được gộp chung.
 async function startCameraWith(cameraIdOrConfig) {
     setCameraStatus('Đang mở camera...');
     try {
         await html5QrCode.start(
             cameraIdOrConfig,
-            { fps: 10, qrbox: adaptiveQrBox },
+            {
+                fps: 10,
+                qrbox: adaptiveQrBox,
+                videoConstraints: { width: { ideal: 1920 }, height: { ideal: 1080 } }
+            },
             onCameraScanSuccess,
             () => {} // lỗi giải mã từng khung hình, bỏ qua, camera tiếp tục tự quét
         );
@@ -525,13 +537,17 @@ openCameraScanBtn.addEventListener('click', async () => {
     }
     currentCameraIndex = -1;
     // Luôn mở bằng camera SAU (environment) mặc định trước, không suy đoán từ
-    // thứ tự danh sách camera (nhiều máy liệt kê camera trước lên đầu)
-    startCameraWith({ facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } });
+    // thứ tự danh sách camera (nhiều máy liệt kê camera trước lên đầu).
+    // cameraIdOrConfig chỉ được phép có đúng 1 key nên KHÔNG được gộp width/height vào đây.
+    startCameraWith({ facingMode: { ideal: 'environment' } });
 });
 
 closeCameraScanBtn.addEventListener('click', async () => {
-    await stopCameraIfRunning();
-    cameraScanModal.style.display = 'none';
+    try {
+        await stopCameraIfRunning();
+    } finally {
+        cameraScanModal.style.display = 'none';
+    }
 });
 
 switchCameraBtn.addEventListener('click', async () => {
@@ -539,9 +555,12 @@ switchCameraBtn.addEventListener('click', async () => {
         setCameraStatus('Máy chỉ có 1 camera.', true);
         return;
     }
-    await stopCameraIfRunning();
-    currentCameraIndex = (currentCameraIndex + 1) % cameraDeviceList.length;
-    startCameraWith(cameraDeviceList[currentCameraIndex].id);
+    try {
+        await stopCameraIfRunning();
+    } finally {
+        currentCameraIndex = (currentCameraIndex + 1) % cameraDeviceList.length;
+        startCameraWith(cameraDeviceList[currentCameraIndex].id);
+    }
 });
 
 // ===== 4. Xử lý thêm mới thủ công =====
