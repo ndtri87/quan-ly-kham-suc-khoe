@@ -357,14 +357,15 @@
             border: 1px solid var(--accent); border-radius: 2px;
         }
 
-        /* ===== Badge điều kiện khám & trạng thái đồng kiểm ===== */
+        /* ===== Badge điều kiện khám ===== */
         .badge {
-            display: inline-block; padding: 3px 9px; border-radius: 10px;
-            font-size: 11px; font-weight: 700; white-space: nowrap; letter-spacing: .01em;
+            display: inline-block; padding: 4px 10px; border-radius: var(--radius);
+            font-size: 11px; font-weight: 700; white-space: nowrap; letter-spacing: .02em;
+            text-transform: uppercase;
         }
-        .badge-pass { background: #e3f5e9; color: #1e7a42; border: 1px solid #b7e2c6; }
-        .badge-warn { background: #fdf3d9; color: #8a6510; border: 1px solid #f0dfa0; }
-        .badge-fail { background: #fbe4e4; color: var(--danger); border: 1px solid #f0c2c2; }
+        .badge-pass { background: #1e7a42; color: #fff; border: 1px solid #1e7a42; }
+        .badge-warn { background: #b8860b; color: #fff; border: 1px solid #b8860b; }
+        .badge-fail { background: var(--danger); color: #fff; border: 1px solid var(--danger); }
         .badge-na { background: var(--line-soft); color: var(--ink-muted); border: 1px solid var(--line); }
 
         /* ===== CSS In Tem STT khổ 5cm x 3cm ===== */
