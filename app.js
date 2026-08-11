@@ -455,16 +455,34 @@ const openCameraScanBtn = document.getElementById('openCameraScanBtn');
 const cameraScanModal = document.getElementById('cameraScanModal');
 const closeCameraScanBtn = document.getElementById('closeCameraScanBtn');
 const switchCameraBtn = document.getElementById('switchCameraBtn');
+const toggleTorchBtn = document.getElementById('toggleTorchBtn');
 const cameraScanStatus = document.getElementById('cameraScanStatus');
 
 let html5QrCode = null;
 let cameraDeviceList = [];
 let currentCameraIndex = -1; // -1 = đang dùng camera sau mặc định (facingMode), chưa chọn camera cụ thể
 let isProcessingScan = false;
+let torchOn = false;
 
 function setCameraStatus(msg, isError) {
     cameraScanStatus.textContent = msg || '';
     cameraScanStatus.classList.toggle('error', !!isError);
+}
+
+// Bật/tắt đèn flash chỉ hiện nút nếu máy hỗ trợ (nhiều thẻ CCCD ép plastic
+// bóng, cần đủ sáng để camera đọc được mã QR dày đặc)
+function refreshTorchAvailability() {
+    torchOn = false;
+    toggleTorchBtn.textContent = 'Bật đèn';
+    toggleTorchBtn.style.display = 'none';
+    try {
+        const capabilities = html5QrCode.getRunningTrackCapabilities();
+        if (capabilities && capabilities.torch) {
+            toggleTorchBtn.style.display = '';
+        }
+    } catch (err) {
+        // Máy/trình duyệt không hỗ trợ truy vấn capability — bỏ qua, không hiện nút
+    }
 }
 
 function stopCameraIfRunning() {
@@ -499,6 +517,7 @@ function adaptiveQrBox(viewfinderWidth, viewfinderHeight) {
 // độ phân giải thấp (mặc định trình duyệt hay dùng) thường không đọc nổi.
 // Lưu ý: cameraIdOrConfig chỉ được phép có ĐÚNG 1 key (facingMode HOẶC deviceId),
 // nên width/height phải truyền riêng qua videoConstraints, không được gộp chung.
+// Trả về true/false để nơi gọi biết có cần thử phương án khác không.
 async function startCameraWith(cameraIdOrConfig) {
     setCameraStatus('Đang mở camera...');
     try {
@@ -507,28 +526,48 @@ async function startCameraWith(cameraIdOrConfig) {
             {
                 fps: 10,
                 qrbox: adaptiveQrBox,
-                videoConstraints: { width: { ideal: 1920 }, height: { ideal: 1080 } }
+                videoConstraints: {
+                    width: { ideal: 2560 },
+                    height: { ideal: 1440 },
+                    advanced: [{ focusMode: 'continuous' }]
+                }
             },
             onCameraScanSuccess,
             () => {} // lỗi giải mã từng khung hình, bỏ qua, camera tiếp tục tự quét
         );
         setCameraStatus('Đưa mã QR trên CCCD vào khung hình, cách khoảng 15–20cm, giữ yên tay — hệ thống tự nhận diện, không cần bấm nút chụp.');
+        refreshTorchAvailability();
+        return true;
     } catch (err) {
         console.error(err);
         setCameraStatus('Không mở được camera: ' + (err.message || err), true);
+        return false;
     }
 }
 
 openCameraScanBtn.addEventListener('click', async () => {
     isProcessingScan = false;
     cameraScanModal.style.display = 'flex';
+    toggleTorchBtn.style.display = 'none';
 
     if (!window.isSecureContext) {
         setCameraStatus('Tính năng camera chỉ hoạt động khi mở trang qua đường link https (bản đã publish) — không dùng được khi mở trực tiếp file trên máy.', true);
         return;
     }
 
-    if (!html5QrCode) html5QrCode = new Html5Qrcode('qrReaderView');
+    if (!html5QrCode) {
+        // experimentalFeatures.useBarCodeDetectorIfSupported: ưu tiên dùng engine
+        // quét mã vạch/QR gốc của hệ điều hành (nhanh và đọc chính xác hơn nhiều so
+        // với engine JS thuần) trên các trình duyệt hỗ trợ (chủ yếu Chrome Android)
+        try {
+            html5QrCode = new Html5Qrcode('qrReaderView', {
+                verbose: false,
+                experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+            });
+        } catch (err) {
+            html5QrCode = new Html5Qrcode('qrReaderView');
+        }
+    }
 
     try {
         cameraDeviceList = await Html5Qrcode.getCameras();
@@ -536,10 +575,14 @@ openCameraScanBtn.addEventListener('click', async () => {
         cameraDeviceList = [];
     }
     currentCameraIndex = -1;
-    // Luôn mở bằng camera SAU (environment) mặc định trước, không suy đoán từ
-    // thứ tự danh sách camera (nhiều máy liệt kê camera trước lên đầu).
-    // cameraIdOrConfig chỉ được phép có đúng 1 key nên KHÔNG được gộp width/height vào đây.
-    startCameraWith({ facingMode: { ideal: 'environment' } });
+
+    // Luôn mở bằng camera SAU (environment): thử "exact" trước để chắc chắn đúng
+    // camera sau, nếu máy nào không thoả được exact thì rơi về "ideal" thay vì báo lỗi
+    // luôn. cameraIdOrConfig chỉ được phép có đúng 1 key nên không gộp width/height vào đây.
+    const gotExact = await startCameraWith({ facingMode: { exact: 'environment' } });
+    if (!gotExact) {
+        await startCameraWith({ facingMode: { ideal: 'environment' } });
+    }
 });
 
 closeCameraScanBtn.addEventListener('click', async () => {
@@ -547,6 +590,17 @@ closeCameraScanBtn.addEventListener('click', async () => {
         await stopCameraIfRunning();
     } finally {
         cameraScanModal.style.display = 'none';
+    }
+});
+
+toggleTorchBtn.addEventListener('click', async () => {
+    const nextState = !torchOn;
+    try {
+        await html5QrCode.applyVideoConstraints({ advanced: [{ torch: nextState }] });
+        torchOn = nextState;
+        toggleTorchBtn.textContent = torchOn ? 'Tắt đèn' : 'Bật đèn';
+    } catch (err) {
+        setCameraStatus('Không bật được đèn flash trên máy này.', true);
     }
 });
 
