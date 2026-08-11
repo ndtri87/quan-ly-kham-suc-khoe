@@ -456,6 +456,7 @@ const cameraScanModal = document.getElementById('cameraScanModal');
 const closeCameraScanBtn = document.getElementById('closeCameraScanBtn');
 const switchCameraBtn = document.getElementById('switchCameraBtn');
 const toggleTorchBtn = document.getElementById('toggleTorchBtn');
+const captureScanBtn = document.getElementById('captureScanBtn');
 const cameraScanStatus = document.getElementById('cameraScanStatus');
 
 let html5QrCode = null;
@@ -615,6 +616,42 @@ switchCameraBtn.addEventListener('click', async () => {
         currentCameraIndex = (currentCameraIndex + 1) % cameraDeviceList.length;
         startCameraWith(cameraDeviceList[currentCameraIndex].id);
     }
+});
+
+// Dự phòng cho trường hợp quét liên tục không nhận (thường gặp trên iPhone/Safari
+// vì không có engine quét gốc, chỉ giải mã bằng JavaScript trên video thời gian
+// thực): chụp đúng 1 khung hình ở độ phân giải đầy đủ, giải mã riêng ảnh đó —
+// không bị giới hạn hiệu năng như quét video liên tục nên đọc được cả mã QR dày đặc.
+captureScanBtn.addEventListener('click', async () => {
+    const videoEl = document.querySelector('#qrReaderView video');
+    if (!videoEl || !videoEl.videoWidth) {
+        setCameraStatus('Camera chưa sẵn sàng, đợi vài giây rồi thử lại.', true);
+        return;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = videoEl.videoWidth;
+    canvas.height = videoEl.videoHeight;
+    canvas.getContext('2d').drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+
+    setCameraStatus('Đang đọc ảnh vừa chụp...');
+    await stopCameraIfRunning();
+
+    canvas.toBlob(async (blob) => {
+        if (!blob) {
+            setCameraStatus('Chụp ảnh thất bại, thử lại.', true);
+            startCameraWith({ facingMode: { ideal: 'environment' } });
+            return;
+        }
+        try {
+            const decodedText = await html5QrCode.scanFile(blob, true);
+            cameraScanModal.style.display = 'none';
+            handleScannedCccdPayload(decodedText);
+        } catch (err) {
+            setCameraStatus('Không đọc được mã QR trong ảnh vừa chụp — giữ thẻ phẳng, đủ sáng, không loá, gần khung hình hơn rồi thử lại.', true);
+            startCameraWith({ facingMode: { ideal: 'environment' } });
+        }
+    }, 'image/jpeg', 0.92);
 });
 
 // ===== 4. Xử lý thêm mới thủ công =====
