@@ -459,7 +459,7 @@ const cameraScanStatus = document.getElementById('cameraScanStatus');
 
 let html5QrCode = null;
 let cameraDeviceList = [];
-let currentCameraIndex = 0;
+let currentCameraIndex = -1; // -1 = đang dùng camera sau mặc định (facingMode), chưa chọn camera cụ thể
 let isProcessingScan = false;
 
 function setCameraStatus(msg, isError) {
@@ -481,12 +481,26 @@ function onCameraScanSuccess(decodedText) {
     });
 }
 
-async function startCameraAt(index) {
+// Ô quét thích ứng theo kích thước khung hình thực tế (thay vì cố định 250px),
+// để không bị quá nhỏ so với video độ phân giải cao
+function adaptiveQrBox(viewfinderWidth, viewfinderHeight) {
+    const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+    const size = Math.floor(minEdge * 0.75);
+    return { width: size, height: size };
+}
+
+// Yêu cầu độ phân giải cao hơn mặc định — mã QR trên CCCD gắn chip khá dày đặc,
+// độ phân giải thấp (mặc định trình duyệt hay dùng) thường không đọc nổi
+async function startCameraWith(cameraIdOrConfig) {
     setCameraStatus('Đang mở camera...');
-    const cameraId = cameraDeviceList.length > 0 ? cameraDeviceList[index].id : { facingMode: 'environment' };
     try {
-        await html5QrCode.start(cameraId, { fps: 10, qrbox: 250 }, onCameraScanSuccess, () => {});
-        setCameraStatus('Đưa mã QR trên CCCD vào giữa khung hình.');
+        await html5QrCode.start(
+            cameraIdOrConfig,
+            { fps: 10, qrbox: adaptiveQrBox },
+            onCameraScanSuccess,
+            () => {} // lỗi giải mã từng khung hình, bỏ qua, camera tiếp tục tự quét
+        );
+        setCameraStatus('Đưa mã QR trên CCCD vào khung hình, cách khoảng 15–20cm, giữ yên tay — hệ thống tự nhận diện, không cần bấm nút chụp.');
     } catch (err) {
         console.error(err);
         setCameraStatus('Không mở được camera: ' + (err.message || err), true);
@@ -509,8 +523,10 @@ openCameraScanBtn.addEventListener('click', async () => {
     } catch (err) {
         cameraDeviceList = [];
     }
-    currentCameraIndex = 0;
-    startCameraAt(currentCameraIndex);
+    currentCameraIndex = -1;
+    // Luôn mở bằng camera SAU (environment) mặc định trước, không suy đoán từ
+    // thứ tự danh sách camera (nhiều máy liệt kê camera trước lên đầu)
+    startCameraWith({ facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } });
 });
 
 closeCameraScanBtn.addEventListener('click', async () => {
@@ -525,7 +541,7 @@ switchCameraBtn.addEventListener('click', async () => {
     }
     await stopCameraIfRunning();
     currentCameraIndex = (currentCameraIndex + 1) % cameraDeviceList.length;
-    startCameraAt(currentCameraIndex);
+    startCameraWith(cameraDeviceList[currentCameraIndex].id);
 });
 
 // ===== 4. Xử lý thêm mới thủ công =====
