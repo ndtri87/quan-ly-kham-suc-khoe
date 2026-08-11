@@ -407,27 +407,6 @@ function updateRecordField(key, field, rawValue) {
     });
 }
 
-// ===== Xác nhận / hủy "đồng kiểm" hồ sơ (nhân viên kiểm duyệt xác nhận đã kiểm tra lại) =====
-function toggleVerify(key) {
-    if (!activeBatchId) return;
-    const item = rawRecordsCache && rawRecordsCache[key];
-    if (!item) return;
-
-    if (item.verifiedAt) {
-        update(ref(db, `batchRecords/${activeBatchId}/${key}`), {
-            verifiedAt: null,
-            verifiedBy: null,
-            verifiedByEmail: null
-        });
-    } else {
-        update(ref(db, `batchRecords/${activeBatchId}/${key}`), {
-            verifiedAt: Date.now(),
-            verifiedBy: currentUser.uid,
-            verifiedByEmail: currentUser.email
-        });
-    }
-}
-
 // ===== Xóa bản ghi =====
 function deleteRecord(key) {
     if (!activeBatchId) return;
@@ -501,7 +480,6 @@ function getSortValue(item, field) {
         case 'createdAt': return item.timestampRaw;
         case 'dob': return dobSortKey(item.dob);
         case 'eligibility': return item.eligibility.label;
-        case 'verified': return item.verifiedAt || 0;
         default: return (item[field] || '').toString().toLocaleLowerCase('vi-VN');
     }
 }
@@ -545,9 +523,7 @@ function renderTable() {
             timestampRaw: exactTime,
             createdAt: formatTimestamp(exactTime),
             createdByEmail: item.createdByEmail || '---',
-            eligibility: computeEligibility(item, eligibleKeywords),
-            verifiedAt: item.verifiedAt || 0,
-            verifiedByEmail: item.verifiedByEmail || ''
+            eligibility: computeEligibility(item, eligibleKeywords)
         };
     });
 
@@ -563,11 +539,6 @@ function renderTable() {
     formattedRecords.forEach((item) => {
         const badgeClass = 'badge-' + item.eligibility.code;
         const canPrint = item.eligibility.code === 'pass' || item.eligibility.code === 'na';
-        const verified = !!item.verifiedAt;
-        const verifyCell = verified
-            ? `<span class="verify-yes">✓ Đã đồng kiểm — ${item.verifiedByEmail} — ${formatTimestamp(item.verifiedAt)}</span>`
-            : `<span class="verify-no">Chưa đồng kiểm</span>`;
-        const verifyBtnLabel = verified ? 'Hủy đồng kiểm' : 'Đồng kiểm';
 
         let row = `<tr>
             <td style="text-align: center;"><input type="checkbox" class="row-checkbox" data-stt="${item.sttFormatted}" data-name="${item.name}" data-dob="${item.dob}" data-gender="${item.gender}"></td>
@@ -580,12 +551,10 @@ function renderTable() {
             <td class="editable-cell" data-key="${item.key}" data-field="tempAddress">${item.tempAddress}</td>
             <td class="editable-cell" data-key="${item.key}" data-field="phone" style="text-align: center;">${item.phone}</td>
             <td style="text-align: center;"><span class="badge ${badgeClass}">${item.eligibility.label}</span></td>
-            <td style="text-align: center;">${verifyCell}</td>
             <td style="text-align: center;">${item.createdAt}</td>
             <td style="text-align: center; font-size: 12px; color: var(--ink-muted);">${item.createdByEmail}</td>
             <td class="row-actions">
                 <button class="btn-print" ${canPrint ? '' : 'disabled title="Hồ sơ chưa đủ điều kiện khám, không thể in tem"'} onclick="printSingleSTT('${item.sttFormatted}', '${item.name}', '${item.dob}', '${item.gender}')">In Tem</button>
-                <button class="btn-verify ${verified ? 'done' : ''}" onclick="toggleVerify('${item.key}')">${verifyBtnLabel}</button>
                 <button class="btn-edit" onclick="openEditModal('${item.key}')">Sửa</button>
                 <button class="btn-delete" onclick="deleteRecord('${item.key}')">Xóa</button>
             </td>
