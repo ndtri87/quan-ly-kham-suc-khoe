@@ -542,6 +542,11 @@ function handleScannedCccdPayload(rawData) {
         let name = data[2];
         let dobRaw = data[3];
 
+        if (cccd && isDuplicateCccdInBatch(cccd)) {
+            alert(`Số CCCD ${cccd} đã có trong đợt khám này, không thể thêm trùng!`);
+            return false;
+        }
+
         let dobFormatted = dobRaw;
         if (dobRaw.length === 8) {
             dobFormatted = `${dobRaw.substring(0, 2)}/${dobRaw.substring(2, 4)}/${dobRaw.substring(4, 8)}`;
