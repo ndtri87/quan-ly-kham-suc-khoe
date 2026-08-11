@@ -308,12 +308,19 @@
             transition: background .15s ease, box-shadow .15s ease, border-color .15s ease;
         }
         button:hover { background: var(--line-soft); border-color: var(--ink-muted); }
+        button:disabled { opacity: .45; cursor: not-allowed; }
+        button:disabled:hover { background: var(--surface); border-color: var(--line); }
 
         .btn-excel, .btn-print-batch { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
         .row-actions { display: flex; gap: 4px; justify-content: center; flex-wrap: nowrap; }
         .btn-print, .btn-edit, .btn-delete { padding: 4px 8px; font-size: 10px; white-space: nowrap; }
         .btn-delete { color: var(--danger); border-color: var(--danger); }
         .btn-delete:hover { background: var(--danger); color: white; }
+        .btn-delete-batch {
+            width: 100%; margin-top: 10px;
+            color: var(--danger); border-color: var(--danger);
+        }
+        .btn-delete-batch:hover { background: var(--danger); color: white; }
         .btn-manual {
             background: var(--accent); color: white; border: 1px solid var(--accent);
             width: 100%; margin-top: 10px;
@@ -431,6 +438,7 @@
         <div class="card batch-bar">
             <label for="batchSelect">Đợt khám</label>
             <select id="batchSelect"><option value="">-- Chọn đợt khám --</option></select>
+            <button type="button" class="btn-cancel" id="editBatchBtn" disabled>Sửa đợt khám</button>
             <button type="button" class="btn-new-batch" id="newBatchBtn">+ Đợt khám mới</button>
         </div>
 
@@ -515,6 +523,31 @@
                 <button type="button" class="btn-cancel" id="cancelNewBatchBtn">Hủy</button>
                 <button type="submit" class="btn-new-batch">Tạo đợt khám</button>
             </div>
+        </form>
+    </div>
+</div>
+
+<!-- ===== Modal sửa đợt khám ===== -->
+<div class="modal-backdrop" id="editBatchModal">
+    <div class="modal-box">
+        <h3>Sửa đợt khám</h3>
+        <form id="editBatchForm">
+            <label class="section-label">Tên đợt khám (*)</label>
+            <input type="text" id="editBatchName" required>
+            <label class="section-label">Ngày khám</label>
+            <input type="date" id="editBatchDate">
+            <label class="section-label">Địa điểm</label>
+            <input type="text" id="editBatchLocation">
+            <label class="section-label">Trạng thái</label>
+            <select id="editBatchStatus">
+                <option value="active">Đang hoạt động</option>
+                <option value="archived">Đã lưu trữ</option>
+            </select>
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" id="cancelEditBatchBtn">Hủy</button>
+                <button type="submit" class="btn-new-batch">Lưu thay đổi</button>
+            </div>
+            <button type="button" class="btn-delete-batch" id="deleteBatchBtn">Xóa đợt khám</button>
         </form>
     </div>
 </div>

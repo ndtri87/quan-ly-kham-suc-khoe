@@ -40,6 +40,11 @@ const newBatchBtn = document.getElementById('newBatchBtn');
 const newBatchModal = document.getElementById('newBatchModal');
 const newBatchForm = document.getElementById('newBatchForm');
 const cancelNewBatchBtn = document.getElementById('cancelNewBatchBtn');
+const editBatchBtn = document.getElementById('editBatchBtn');
+const editBatchModal = document.getElementById('editBatchModal');
+const editBatchForm = document.getElementById('editBatchForm');
+const cancelEditBatchBtn = document.getElementById('cancelEditBatchBtn');
+const deleteBatchBtn = document.getElementById('deleteBatchBtn');
 const noBatchBanner = document.getElementById('noBatchBanner');
 const tableBody = document.getElementById('tableBody');
 const tableHead = document.querySelector('#dataTable thead');
@@ -170,6 +175,7 @@ function renderBatchDropdown() {
         localStorage.removeItem('activeBatchId');
         detachBatchListeners();
         setEntryEnabled(false);
+        editBatchBtn.disabled = true;
     }
 }
 
@@ -183,6 +189,7 @@ batchSelect.addEventListener('change', () => {
         window.__appState.activeBatchName = '';
         localStorage.removeItem('activeBatchId');
         setEntryEnabled(false);
+        editBatchBtn.disabled = true;
         tableBody.innerHTML = '';
     }
 });
@@ -195,6 +202,7 @@ function selectBatch(id, persist) {
     if (persist) localStorage.setItem('activeBatchId', id);
     batchSelect.value = id;
     setEntryEnabled(true);
+    editBatchBtn.disabled = false;
     attachBatchListeners(id);
 }
 
@@ -240,6 +248,47 @@ newBatchForm.addEventListener('submit', async (e) => {
     await update(ref(db), updates);
     newBatchModal.style.display = 'none';
     selectBatch(id, true);
+});
+
+// ===== Sửa / Xóa đợt khám đang chọn =====
+editBatchBtn.addEventListener('click', () => {
+    if (!activeBatchId) return;
+    const meta = batchListCache[activeBatchId] || {};
+    document.getElementById('editBatchName').value = meta.name || '';
+    document.getElementById('editBatchDate').value = meta.date || '';
+    document.getElementById('editBatchLocation').value = meta.location || '';
+    document.getElementById('editBatchStatus').value = meta.status || 'active';
+    editBatchModal.style.display = 'flex';
+});
+
+cancelEditBatchBtn.addEventListener('click', () => { editBatchModal.style.display = 'none'; });
+
+editBatchForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!activeBatchId) return;
+    const name = document.getElementById('editBatchName').value.trim();
+    if (!name) { alert('Vui lòng nhập tên đợt khám!'); return; }
+
+    update(ref(db, `batchMeta/${activeBatchId}`), {
+        name,
+        date: document.getElementById('editBatchDate').value,
+        location: document.getElementById('editBatchLocation').value.trim(),
+        status: document.getElementById('editBatchStatus').value
+    });
+    editBatchModal.style.display = 'none';
+});
+
+deleteBatchBtn.addEventListener('click', () => {
+    if (!activeBatchId) return;
+    const hasRecords = rawRecordsCache && Object.keys(rawRecordsCache).length > 0;
+    if (hasRecords) {
+        alert('Đợt khám này đang có dữ liệu nên không thể xóa hẳn (tránh mất dữ liệu ngoài ý muốn). Hãy đổi Trạng thái sang "Đã lưu trữ" để ẩn bớt thay vì xóa.');
+        return;
+    }
+    const meta = batchListCache[activeBatchId] || {};
+    if (!confirm(`Xóa hẳn đợt khám "${meta.name || ''}"? Không thể hoàn tác.`)) return;
+    remove(ref(db, `batchMeta/${activeBatchId}`));
+    editBatchModal.style.display = 'none';
 });
 
 // ===== Sắp xếp bảng: bấm vào tiêu đề cột bất kỳ để sắp xếp theo cột đó =====
@@ -432,7 +481,7 @@ function renderTable() {
             <td style="text-align: center;">${item.gender}</td>
             <td data-field="address">${item.address}</td>
             <td class="editable-cell" data-key="${item.key}" data-field="tempAddress">${item.tempAddress}</td>
-            <td style="text-align: center;">${item.phone}</td>
+            <td class="editable-cell" data-key="${item.key}" data-field="phone" style="text-align: center;">${item.phone}</td>
             <td style="text-align: center;">${item.createdAt}</td>
             <td style="text-align: center; font-size: 12px; color: var(--ink-muted);">${item.createdByEmail}</td>
             <td class="row-actions">
