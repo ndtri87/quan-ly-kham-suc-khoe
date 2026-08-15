@@ -492,12 +492,9 @@ function renderTable() {
     const startNum = 1;
     let records = Object.entries(rawRecordsCache);
 
+    // Sắp xếp theo thời gian tạo (thứ tự gốc) để làm nền tính STT tự động —
+    // customSTT chỉ ghi đè số hiển thị, không đổi thứ tự nền này.
     records.sort((a, b) => {
-        let sttA = a[1].customSTT !== undefined ? Number(a[1].customSTT) : 0;
-        let sttB = b[1].customSTT !== undefined ? Number(b[1].customSTT) : 0;
-        if (sttA !== 0 && sttB !== 0 && sttA !== sttB) {
-            return sttA - sttB;
-        }
         let timeA = a[1].timestamp || getTimeFromFirebaseId(a[0]);
         let timeB = b[1].timestamp || getTimeFromFirebaseId(b[0]);
         return timeA - timeB;
@@ -505,8 +502,13 @@ function renderTable() {
 
     const eligibleKeywords = getEligibleKeywords(activeBatchId);
 
-    let formattedRecords = records.map(([key, item], index) => {
-        let assignedNum = (item.customSTT !== undefined && item.customSTT !== '') ? Number(item.customSTT) : (startNum + index);
+    // Đếm chạy: hồ sơ có customSTT (sửa tay hoặc gán hàng loạt qua fix-stt.html)
+    // "neo" số đếm lên giá trị đó, để các hồ sơ tự động thêm sau luôn nối tiếp
+    // đúng từ số lớn nhất đang dùng, thay vì tính theo vị trí trong mảng.
+    let runningNum = startNum - 1;
+    let formattedRecords = records.map(([key, item]) => {
+        let assignedNum = (item.customSTT !== undefined && item.customSTT !== '') ? Number(item.customSTT) : (runningNum + 1);
+        if (assignedNum > runningNum) runningNum = assignedNum;
         let exactTime = item.timestamp || getTimeFromFirebaseId(key);
 
         return {
