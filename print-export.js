@@ -74,7 +74,7 @@ function exportExcel() {
     });
 
     for (let row of cloneTable.rows) {
-        row.deleteCell(12); // Xóa cột Thao tác
+        row.deleteCell(13); // Xóa cột Thao tác
         row.deleteCell(11); // Xóa cột Người tạo
         row.deleteCell(0); // Xóa cột Chọn
     }
@@ -96,7 +96,7 @@ function exportExcel() {
     }
 
     // Độ rộng cột theo đúng thứ tự: STT, CCCD, Họ và Tên, Ngày Sinh, Giới Tính, Địa Chỉ,
-    // Địa Chỉ Tạm Trú, SĐT, Điều Kiện Khám, Ngày Tạo
+    // Địa Chỉ Tạm Trú, SĐT, Điều Kiện Khám, Ngày Tạo, Ghi Chú
     ws['!cols'] = [
         { wch: 6 },
         { wch: 16 },
@@ -107,7 +107,8 @@ function exportExcel() {
         { wch: 34 },
         { wch: 14 },
         { wch: 18 },
-        { wch: 20 }
+        { wch: 20 },
+        { wch: 28 }
     ];
 
     const batchName = (window.__appState && window.__appState.activeBatchName) || 'DotKham';

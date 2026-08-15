@@ -350,6 +350,7 @@
         tbody tr:hover { background: var(--line-soft); }
         td[data-field="name"] { text-transform: uppercase; font-weight: 600; }
         td[data-field="address"], td[data-field="tempAddress"] { white-space: normal; min-width: 220px; }
+        td[data-field="note"] { white-space: normal; min-width: 160px; }
         td.editable-cell { cursor: text; }
         td.editable-cell:hover { background: var(--line-soft); }
         td.editable-cell input {
@@ -475,6 +476,7 @@
                     <input type="text" id="manualAddress" placeholder="Địa chỉ">
                     <input type="text" id="manualTempAddress" placeholder="Địa chỉ tạm trú">
                     <input type="text" id="manualPhone" placeholder="Số điện thoại">
+                    <input type="text" id="manualNote" placeholder="Ghi chú">
                     <button type="submit" class="btn-manual">Thêm vào hệ thống</button>
                 </form>
             </div>
@@ -508,6 +510,7 @@
                             <th data-field="eligibility">Điều Kiện Khám</th>
                             <th data-field="createdAt">Ngày Tạo</th>
                             <th data-field="createdByEmail">Người Tạo</th>
+                            <th data-field="note">Ghi Chú</th>
                             <th>Thao Tác</th>
                         </tr>
                     </thead>
@@ -590,6 +593,8 @@
             <input type="text" id="editTempAddress">
             <label class="section-label">Số điện thoại</label>
             <input type="text" id="editPhone">
+            <label class="section-label">Ghi chú</label>
+            <input type="text" id="editNote">
             <div class="modal-actions">
                 <button type="button" class="btn-cancel" id="cancelEditBtn">Hủy</button>
                 <button type="submit" class="btn-new-batch">Lưu</button>

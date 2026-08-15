@@ -433,6 +433,7 @@ function openEditModal(key) {
     document.getElementById('editAddress').value = item.address || '';
     document.getElementById('editTempAddress').value = item.tempAddress || '';
     document.getElementById('editPhone').value = item.phone || '';
+    document.getElementById('editNote').value = item.note || '';
     editRecordModal.style.display = 'flex';
 }
 
@@ -456,6 +457,7 @@ editRecordForm.addEventListener('submit', (e) => {
         address: document.getElementById('editAddress').value.trim(),
         tempAddress: document.getElementById('editTempAddress').value.trim(),
         phone: document.getElementById('editPhone').value.trim(),
+        note: document.getElementById('editNote').value.trim(),
         updatedByEmail: currentUser.email,
         updatedBy: currentUser.uid,
         updatedAt: Date.now()
@@ -522,6 +524,7 @@ function renderTable() {
             address: item.address || '',
             tempAddress: item.tempAddress || '',
             phone: item.phone || '',
+            note: item.note || '',
             timestampRaw: exactTime,
             createdAt: formatTimestamp(exactTime),
             createdByEmail: item.createdByEmail || '---',
@@ -555,6 +558,7 @@ function renderTable() {
             <td style="text-align: center;"><span class="badge ${badgeClass}">${item.eligibility.label}</span></td>
             <td style="text-align: center;">${item.createdAt}</td>
             <td style="text-align: center; font-size: 12px; color: var(--ink-muted);">${item.createdByEmail}</td>
+            <td class="editable-cell" data-key="${item.key}" data-field="note">${item.note}</td>
             <td class="row-actions">
                 <button class="btn-print" ${canPrint ? '' : 'disabled title="Hồ sơ chưa đủ điều kiện khám, không thể in tem"'} onclick="printSingleSTT('${item.sttFormatted}', '${item.name}', '${item.dob}', '${item.gender}')">In Tem</button>
                 <button class="btn-edit" onclick="openEditModal('${item.key}')">Sửa</button>
@@ -883,6 +887,7 @@ manualForm.addEventListener('submit', function (e) {
     let address = document.getElementById('manualAddress').value.trim();
     let tempAddress = document.getElementById('manualTempAddress').value.trim();
     let phone = document.getElementById('manualPhone').value.trim();
+    let note = document.getElementById('manualNote').value.trim();
 
     if (!name) {
         alert("Vui lòng nhập tên khách hàng!");
@@ -894,7 +899,7 @@ manualForm.addEventListener('submit', function (e) {
         return;
     }
 
-    const record = { cccd, name, dob, gender, address, tempAddress, phone };
+    const record = { cccd, name, dob, gender, address, tempAddress, phone, note };
     pushRecord(record);
     if (!warnIfNotEligible(record)) {
         alert("Đã thêm mới thành công!");
