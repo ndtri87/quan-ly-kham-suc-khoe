@@ -555,10 +555,10 @@ function renderTable() {
             <td data-field="address">${item.address}</td>
             <td class="editable-cell" data-key="${item.key}" data-field="tempAddress">${item.tempAddress}</td>
             <td class="editable-cell" data-key="${item.key}" data-field="phone" style="text-align: center;">${item.phone}</td>
+            <td class="editable-cell" data-key="${item.key}" data-field="note">${item.note}</td>
             <td style="text-align: center;"><span class="badge ${badgeClass}">${item.eligibility.label}</span></td>
             <td style="text-align: center;">${item.createdAt}</td>
             <td style="text-align: center; font-size: 12px; color: var(--ink-muted);">${item.createdByEmail}</td>
-            <td class="editable-cell" data-key="${item.key}" data-field="note">${item.note}</td>
             <td class="row-actions">
                 <button class="btn-print" ${canPrint ? '' : 'disabled title="Hồ sơ chưa đủ điều kiện khám, không thể in tem"'} onclick="printSingleSTT('${item.sttFormatted}', '${item.name}', '${item.dob}', '${item.gender}')">In Tem</button>
                 <button class="btn-edit" onclick="openEditModal('${item.key}')">Sửa</button>
