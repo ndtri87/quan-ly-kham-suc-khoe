@@ -596,7 +596,8 @@ tableBody.addEventListener('click', (e) => {
         if (committed) return;
         committed = true;
         const newValue = input.value.trim();
-        if (newValue !== '' && newValue !== currentText) {
+        const allowEmpty = field === 'note';
+        if (newValue !== currentText && (newValue !== '' || allowEmpty)) {
             updateRecordField(key, field, field === 'customSTT' ? Number(newValue) : newValue);
         } else {
             renderTable();
