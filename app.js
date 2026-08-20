@@ -548,11 +548,11 @@ function renderTable() {
         let row = `<tr>
             <td style="text-align: center;"><input type="checkbox" class="row-checkbox" data-stt="${item.sttFormatted}" data-name="${item.name}" data-dob="${item.dob}" data-gender="${item.gender}"></td>
             <td class="editable-cell" data-key="${item.key}" data-field="customSTT" style="text-align: center; font-weight: bold;">${item.sttFormatted}</td>
-            <td style="text-align: center;">${item.cccd}</td>
+            <td class="editable-cell" data-key="${item.key}" data-field="cccd" style="text-align: center;">${item.cccd}</td>
             <td class="editable-cell" data-key="${item.key}" data-field="name">${item.name}</td>
-            <td style="text-align: center;">${item.dob}</td>
-            <td style="text-align: center;">${item.gender}</td>
-            <td data-field="address">${item.address}</td>
+            <td class="editable-cell" data-key="${item.key}" data-field="dob" style="text-align: center;">${item.dob}</td>
+            <td class="editable-cell" data-key="${item.key}" data-field="gender" style="text-align: center;">${item.gender}</td>
+            <td class="editable-cell" data-key="${item.key}" data-field="address">${item.address}</td>
             <td class="editable-cell" data-key="${item.key}" data-field="tempAddress">${item.tempAddress}</td>
             <td class="editable-cell" data-key="${item.key}" data-field="phone" style="text-align: center;">${item.phone}</td>
             <td class="editable-cell" data-key="${item.key}" data-field="note">${item.note}</td>
@@ -569,24 +569,32 @@ function renderTable() {
     });
 }
 
-// ===== Sửa STT / Tên tại chỗ (inline edit) =====
+// ===== Sửa mọi trường dữ liệu tại chỗ trên lưới (inline edit) =====
 tableBody.addEventListener('click', (e) => {
     const cell = e.target.closest('.editable-cell');
-    if (!cell || cell.querySelector('input')) return;
+    if (!cell || cell.querySelector('input, select')) return;
 
     const currentText = cell.textContent.trim();
     const field = cell.dataset.field;
     const key = cell.dataset.key;
 
-    const input = document.createElement('input');
-    input.type = (field === 'customSTT') ? 'number' : 'text';
-    input.value = (field === 'customSTT') ? parseInt(currentText, 10) : currentText;
+    const input = (field === 'gender') ? document.createElement('select') : document.createElement('input');
+    if (field === 'gender') {
+        input.innerHTML = '<option value="Nam">Nam</option><option value="Nữ">Nữ</option>';
+        input.value = currentText;
+    } else {
+        input.type = (field === 'customSTT') ? 'number' : 'text';
+        input.value = (field === 'customSTT') ? parseInt(currentText, 10) : currentText;
+    }
     cell.textContent = '';
     cell.appendChild(input);
     input.focus();
-    input.select();
+    if (input.select) input.select();
 
+    let committed = false;
     const commit = () => {
+        if (committed) return;
+        committed = true;
         const newValue = input.value.trim();
         if (newValue !== '' && newValue !== currentText) {
             updateRecordField(key, field, field === 'customSTT' ? Number(newValue) : newValue);
@@ -594,6 +602,12 @@ tableBody.addEventListener('click', (e) => {
             renderTable();
         }
     };
+
+    if (field === 'gender') {
+        input.addEventListener('change', commit);
+        input.addEventListener('blur', commit);
+        return;
+    }
 
     input.addEventListener('keydown', (ev) => {
         if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
